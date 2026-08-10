@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(req: NextRequest) {
   const email = req.nextUrl.searchParams.get("email");
   if (!email) {
-    return NextResponse.json({ error: "email kerak" }, { status: 400 });
+    return NextResponse.json({ error: "email is required" }, { status: 400 });
   }
 
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google`;
@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     scope: "https://www.googleapis.com/auth/gmail.compose",
     access_type: "offline",
     prompt: "consent",
-    // Foydalanuvchi emailini "state" orqali olib o'tamiz —
-    // callback qaytganda kim ulanayotganini bilish uchun
+    // Carry the user's email through "state" so we know who is
+    // connecting when Google redirects back to our callback
     state: encodeURIComponent(email),
   });
 

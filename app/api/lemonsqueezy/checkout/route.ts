@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Lemon Squeezy'da API chaqirmasdan ham checkout link qurish mumkin,
-// lekin API orqali qurish "custom data" (email) ni ishonchli tarzda
-// checkout ichiga qo'shib beradi — shu email webhook orqali qaytib keladi.
+// A checkout link can be built without an API call, but building it via
+// the API lets us attach "custom data" (email) reliably to the checkout —
+// that same email comes back through the webhook later.
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
     if (!email) {
-      return NextResponse.json({ error: "email kerak" }, { status: 400 });
+      return NextResponse.json({ error: "email is required" }, { status: 400 });
     }
 
     const res = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       console.error("Lemon Squeezy error:", data);
       return NextResponse.json(
-        { error: "Checkout yaratib bo'lmadi" },
+        { error: "Could not create checkout" },
         { status: 500 }
       );
     }

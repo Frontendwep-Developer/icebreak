@@ -8,7 +8,7 @@ const PRO_MONTHLY_LIMIT = 500;
 type Lead = {
   name: string;
   company: string;
-  context: string; // website snippet, LinkedIn note, anything about them
+  context: string;
   email: string;
 };
 
@@ -18,18 +18,17 @@ export async function POST(req: NextRequest) {
 
     if (!email || !Array.isArray(leads) || leads.length === 0) {
       return NextResponse.json(
-        { error: "email va leads majburiy" },
+        { error: "email and leads are required" },
         { status: 400 }
       );
     }
     if (leads.length > 25) {
       return NextResponse.json(
-        { error: "Bir martada eng ko'pi bilan 25 ta lead yuborish mumkin" },
+        { error: "You can send at most 25 leads at once" },
         { status: 400 }
       );
     }
 
-    // 1) Foydalanuvchini topish yoki yaratish
     let { data: user } = await supabaseAdmin
       .from("users")
       .select("*")
@@ -54,7 +53,6 @@ export async function POST(req: NextRequest) {
       user = newUser;
     }
 
-    // 2) Oy almashgan bo'lsa limitni reset qilish
     if (user.period !== currentPeriod) {
       const { data: resetUser, error: resetErr } = await supabaseAdmin
         .from("users")
@@ -74,8 +72,8 @@ export async function POST(req: NextRequest) {
         {
           error:
             user.plan === "pro"
-              ? "Oylik Pro limitingiz tugadi. Keyingi oy yangilanadi."
-              : "Bepul limit tugadi (10/oy). Pro'ga o'ting.",
+              ? "You've hit your monthly Pro limit. It resets next month."
+              : "You've used your free monthly limit (10). Upgrade to Pro for more.",
           upgrade: user.plan !== "pro",
         },
         { status: 402 }
@@ -84,16 +82,12 @@ export async function POST(req: NextRequest) {
 
     const leadsToProcess: Lead[] = leads.slice(0, remaining);
 
-    // 3) Har bir lead uchun Anthropic API orqali email yozdirish
     const results = await Promise.all(
       leadsToProcess.map(async (lead) => {
-        // Agar "kontekst" maydonida URL bo'lsa, avval o'sha saytni o'qib olamiz
         let context = lead.context;
         if (context && looksLikeUrl(context)) {
           const scraped = await scrapeWebsite(context);
-          if (scraped) {
-            context = scraped;
-          }
+          if (scraped) context = scraped;
         }
 
         const prompt = `You are helping ${senderName || "a sender"} write a short, genuinely personal cold outreach email.
@@ -112,32 +106,31 @@ Write:
 Return ONLY valid JSON, no markdown, in this exact shape:
 {"opener": "...", "email": "..."}`;
 
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            max_tokens: 400,
-            response_format: { type: "json_object" },
-            messages: [{ role: "user", content: prompt }],
-          }),
-        });
+        const res = await fetch(
+          "https://api.groq.com/openai/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              max_tokens: 400,
+              response_format: { type: "json_object" },
+              messages: [{ role: "user", content: prompt }],
+            }),
+          }
+        );
 
         const data = await res.json();
         const text = data?.choices?.[0]?.message?.content || "{}";
-        console.log("GROQ RAW OUTPUT:", text);
-
         const cleaned = text.replace(/```json|```/g, "").trim();
 
         let parsed;
         try {
           parsed = JSON.parse(cleaned);
         } catch {
-          // Modelga qo'shimcha matn qo'shib yuborgan bo'lishi mumkin —
-          // matn ichidan {...} bo'lagini qidirib topamiz
           const match = cleaned.match(/\{[\s\S]*\}/);
           if (match) {
             try {
@@ -158,7 +151,6 @@ Return ONLY valid JSON, no markdown, in this exact shape:
       })
     );
 
-    // 4) Ishlatilgan kreditni yozib qo'yish
     await supabaseAdmin
       .from("users")
       .update({ credits_used: user.credits_used + leadsToProcess.length })
@@ -173,7 +165,7 @@ Return ONLY valid JSON, no markdown, in this exact shape:
   } catch (err: any) {
     console.error(err);
     return NextResponse.json(
-      { error: "Server xatosi: " + err.message },
+      { error: "Server error: " + err.message },
       { status: 500 }
     );
   }

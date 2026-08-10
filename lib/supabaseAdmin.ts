@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Bu klient faqat SERVER tomonida (API route'larda) ishlatiladi.
-// SUPABASE_SERVICE_ROLE_KEY hech qachon frontendga chiqmasligi kerak.
+// This client is only used SERVER-SIDE (in API routes).
+// SUPABASE_SERVICE_ROLE_KEY must never be exposed to the frontend.
 export const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
-  const state = req.nextUrl.searchParams.get("state"); // bu — foydalanuvchi emaili
+  const state = req.nextUrl.searchParams.get("state"); // this is the user's email
   const errorParam = req.nextUrl.searchParams.get("error");
 
   if (errorParam) {
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!code || !state) {
-    return NextResponse.json({ error: "code yoki state yo'q" }, { status: 400 });
+    return NextResponse.json({ error: "Missing code or state" }, { status: 400 });
   }
 
   const email = decodeURIComponent(state);
@@ -35,16 +35,16 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenRes.json();
 
     if (!tokenData.refresh_token) {
-      // Google ba'zan refresh_token qaytarmaydi, agar foydalanuvchi
-      // avval ham ruxsat bergan bo'lsa. "prompt=consent" shu muammoni oldini oladi,
-      // lekin baribir tekshiramiz.
-      console.error("Refresh token yo'q:", tokenData);
+      // Google sometimes doesn't return a refresh_token if the user
+      // already granted access before. "prompt=consent" avoids this,
+      // but we still check just in case.
+      console.error("No refresh token:", tokenData);
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_APP_URL}/tool?gmail_error=1`
       );
     }
 
-    // Foydalanuvchini topamiz yoki yaratamiz, refresh tokenni saqlaymiz
+    // Find or create the user, then store the refresh token
     const { data: existing } = await supabaseAdmin
       .from("users")
       .select("email")

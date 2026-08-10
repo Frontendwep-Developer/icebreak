@@ -19,7 +19,7 @@ function verifySignature(rawBody: string, signature: string | null) {
   }
 }
 
-// Lemon Squeezy'dagi holatlar: on_trial, active, paused, past_due, unpaid, cancelled, expired
+// Lemon Squeezy subscription statuses: on_trial, active, paused, past_due, unpaid, cancelled, expired
 const PRO_STATUSES = ["on_trial", "active"];
 
 export async function POST(req: NextRequest) {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-signature");
 
   if (!verifySignature(rawBody, signature)) {
-    return NextResponse.json({ error: "Noto'g'ri signature" }, { status: 401 });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   const payload = JSON.parse(rawBody);

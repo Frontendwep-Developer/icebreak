@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     if (!email || !Array.isArray(results) || results.length === 0) {
       return NextResponse.json(
-        { error: "email va results kerak" },
+        { error: "email and results are required" },
         { status: 400 }
       );
     }
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     if (!user?.google_refresh_token) {
       return NextResponse.json(
-        { error: "Gmail hisobingiz ulanmagan", needsConnect: true },
+        { error: "Your Gmail account isn't connected", needsConnect: true },
         { status: 400 }
       );
     }
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error(err);
     return NextResponse.json(
-      { error: "Draft yaratib bo'lmadi: " + err.message },
+      { error: "Could not create draft: " + err.message },
       { status: 500 }
     );
   }

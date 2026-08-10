@@ -1,6 +1,6 @@
-// Oddiy, tashqi kutubxonasiz HTML'dan matn ajratib oluvchi yordamchi.
-// Maqsad — sahifaning "About / hero" qismidagi asosiy matnni topish,
-// murakkab sahifa tuzilishini emas.
+// A small, dependency-free HTML-to-text helper.
+// Goal: pull out the "About / hero" style copy from a page,
+// not parse the full page structure.
 
 function stripTags(html: string): string {
   return html
@@ -35,7 +35,7 @@ export async function scrapeWebsite(url: string): Promise<string> {
         "User-Agent":
           "Mozilla/5.0 (compatible; IcebreakBot/1.0; +https://icebreak.app)",
       },
-      // 8 soniyadan ortiq kutmaymiz — sekin saytlar butun so'rovni sekinlashtirmasin
+      // Don't wait more than 8 seconds — a slow site shouldn't slow down the whole request
       signal: AbortSignal.timeout(8000),
     });
 
@@ -48,8 +48,8 @@ export async function scrapeWebsite(url: string): Promise<string> {
       extractMeta(html, "description") ||
       extractMeta(html, "og:description");
 
-    // Sahifa matnining birinchi ~1200 belgisini ham qo'shamiz —
-    // ko'p saytlarda hero/intro matni shu joyda bo'ladi
+    // Also grab the first ~1200 characters of body text —
+    // most sites put hero/intro copy right there
     const bodyText = stripTags(html).slice(0, 1200);
 
     const combined = [title, description, bodyText]
