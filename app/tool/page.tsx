@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react";
 
+type Lead = { name: string; company: string; context: string; email: string };
 type ResultItem = {
-  lead: { name: string; company: string; context: string; email: string };
+  lead: Lead;
   opener: string;
   email: string;
 };
+
+const GMAIL_BATCH_SIZE = 10;
 
 export default function ToolPage() {
   const [email, setEmail] = useState("");
@@ -24,9 +27,19 @@ export default function ToolPage() {
   const [gmailStatus, setGmailStatus] = useState<
     "idle" | "connected" | "error"
   >("idle");
-  const [draftsStatus, setDraftsStatus] = useState<
-    "idle" | "loading" | "done" | "error"
-  >("idle");
+
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(
+    null
+  );
+  const [gmailProgress, setGmailProgress] = useState<{
+    sent: number;
+    total: number;
+    skipped: number;
+  } | null>(null);
+  const [gmailBatchError, setGmailBatchError] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -50,10 +63,11 @@ export default function ToolPage() {
     if (results.length === 0) return;
     const escapeCsv = (value: string) =>
       `"${(value || "").replace(/"/g, '""')}"`;
-    const header = ["Name", "Company", "Opener", "Email"];
+    const header = ["Name", "Company", "Email", "Opener", "Message"];
     const rows = results.map((r) => [
       r.lead.name,
       r.lead.company,
+      r.lead.email,
       r.opener,
       r.email,
     ]);
@@ -73,7 +87,7 @@ export default function ToolPage() {
     URL.revokeObjectURL(url);
   }
 
-  function parseLeads(raw: string) {
+  function parseLeads(raw: string): Lead[] {
     return raw
       .split("\n")
       .map((line) => line.trim())
@@ -111,6 +125,7 @@ export default function ToolPage() {
         return;
       }
       setResults(data.results);
+      setSelected(new Set());
       setUsage({ used: data.creditsUsed, limit: data.limit });
     } catch (e: any) {
       setError("Network error: " + e.message);
@@ -119,7 +134,7 @@ export default function ToolPage() {
     }
   }
 
-  async function handleUpgrade() {
+  function handleUpgrade() {
     if (!email) {
       setError("Please enter your email first");
       return;
@@ -139,25 +154,139 @@ export default function ToolPage() {
     window.location.href = `/api/auth/google?email=${encodeURIComponent(email)}`;
   }
 
-  async function handleCreateDrafts() {
-    setDraftsStatus("loading");
+  // --- Selection helpers ---
+
+  function toggleSelect(i: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === results.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(results.map((_, i) => i)));
+    }
+  }
+
+  // --- Clear / delete ---
+
+  function clearAll() {
+    setResults([]);
+    setSelected(new Set());
+    setEditingIndex(null);
+    setGmailProgress(null);
+    setGmailBatchError("");
+  }
+
+  function deleteSelected() {
+    setResults((prev) => prev.filter((_, i) => !selected.has(i)));
+    setSelected(new Set());
+  }
+
+  // --- Edit ---
+
+  function startEdit(i: number) {
+    setEditingIndex(i);
+    setEditText(results[i].email);
+  }
+
+  function saveEdit(i: number) {
+    setResults((prev) =>
+      prev.map((r, idx) => (idx === i ? { ...r, email: editText } : r))
+    );
+    setEditingIndex(null);
+  }
+
+  function cancelEdit() {
+    setEditingIndex(null);
+  }
+
+  function clearEditText() {
+    setEditText("");
+  }
+
+  // --- Regenerate single result ---
+
+  async function regenerate(i: number) {
+    setRegeneratingIndex(i);
+    setError("");
     try {
-      const res = await fetch("/api/gmail/create-drafts", {
+      const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, results }),
+        body: JSON.stringify({
+          email,
+          senderName,
+          productDescription,
+          leads: [results[i].lead],
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        if (data.needsConnect) setGmailStatus("idle");
-        setError(data.error || "Could not create drafts");
-        setDraftsStatus("error");
+        setError(data.error || "Could not regenerate");
+        setNeedsUpgrade(!!data.upgrade);
         return;
       }
-      setDraftsStatus("done");
+      const newResult = data.results[0];
+      setResults((prev) =>
+        prev.map((r, idx) => (idx === i ? newResult : r))
+      );
+      setUsage({ used: data.creditsUsed, limit: data.limit });
     } catch (e: any) {
       setError("Network error: " + e.message);
-      setDraftsStatus("error");
+    } finally {
+      setRegeneratingIndex(null);
+    }
+  }
+
+  // --- Gmail batch send ---
+
+  async function sendToGmail() {
+    const indices =
+      selected.size > 0 ? Array.from(selected) : results.map((_, i) => i);
+
+    const withContent = indices.filter((i) => results[i].email.trim());
+    const emptyCount = indices.length - withContent.length;
+    const toSend = withContent.map((i) => results[i]);
+
+    if (toSend.length === 0) {
+      setGmailBatchError("All selected results are empty — nothing to send.");
+      return;
+    }
+
+    setGmailBatchError("");
+    setGmailProgress({ sent: 0, total: toSend.length, skipped: emptyCount });
+
+    for (let i = 0; i < toSend.length; i += GMAIL_BATCH_SIZE) {
+      const batch = toSend.slice(i, i + GMAIL_BATCH_SIZE);
+      try {
+        const res = await fetch("/api/gmail/create-drafts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, results: batch }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (data.needsConnect) setGmailStatus("idle");
+          setGmailBatchError(data.error || "Could not save some drafts");
+          break;
+        }
+        setGmailProgress((prev) =>
+          prev ? { ...prev, sent: Math.min(i + batch.length, toSend.length) } : null
+        );
+      } catch (e: any) {
+        setGmailBatchError("Network error: " + e.message);
+        break;
+      }
+      // brief pause between batches to stay well under Gmail's rate limits
+      if (i + GMAIL_BATCH_SIZE < toSend.length) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
     }
   }
 
@@ -276,9 +405,40 @@ export default function ToolPage() {
 
         {results.length > 0 && (
           <div className="mt-10 space-y-5">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-              <h2 className="font-display text-xl font-semibold">Results</h2>
-              <div className="flex gap-2">
+            <div className="sticky top-4 z-10 bg-frost/95 backdrop-blur-sm rounded-2xl border border-glacier/10 px-4 py-3 flex items-center justify-between mb-2 flex-wrap gap-3 shadow-sm">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="font-display text-xl font-semibold">
+                  Results
+                </h2>
+                <span className="text-xs text-mist font-mono">
+                  {results.length} total ·{" "}
+                  {results.filter((r) => !r.email.trim()).length} empty
+                </span>
+                <label className="flex items-center gap-1.5 text-xs text-mist cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selected.size === results.length && results.length > 0
+                    }
+                    onChange={toggleSelectAll}
+                  />
+                  Select all
+                </label>
+                {selected.size > 0 && (
+                  <span className="text-xs text-mist">
+                    {selected.size} selected
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {selected.size > 0 && (
+                  <button
+                    onClick={deleteSelected}
+                    className="text-sm font-medium px-4 py-2 rounded-full border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    Delete selected
+                  </button>
+                )}
                 <button
                   onClick={downloadCsv}
                   className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
@@ -286,28 +446,64 @@ export default function ToolPage() {
                   Download CSV
                 </button>
                 <button
-                  onClick={handleCreateDrafts}
-                  disabled={draftsStatus === "loading"}
+                  onClick={sendToGmail}
+                  disabled={!!gmailProgress && gmailProgress.sent < gmailProgress.total}
                   className="text-sm font-medium px-4 py-2 rounded-full bg-glacier text-frost hover:brightness-110 transition disabled:opacity-50"
                 >
-                  {draftsStatus === "loading"
-                    ? "Saving drafts..."
-                    : draftsStatus === "done"
-                    ? "Saved to Gmail ✓"
-                    : "Save all as Gmail drafts"}
+                  {selected.size > 0
+                    ? `Send ${selected.size} selected to Gmail`
+                    : "Send all to Gmail"}
+                </button>
+                <button
+                  onClick={clearAll}
+                  className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                >
+                  Clear results
                 </button>
               </div>
             </div>
+
+            {gmailProgress && (
+              <div className="text-sm text-glacier/70 bg-white/70 border border-glacier/10 rounded-xl px-4 py-2">
+                {gmailBatchError ? (
+                  <span className="text-red-600">{gmailBatchError}</span>
+                ) : gmailProgress.sent === gmailProgress.total ? (
+                  <>
+                    ✓ Saved {gmailProgress.total} drafts to Gmail.
+                    {gmailProgress.skipped > 0 &&
+                      ` (${gmailProgress.skipped} empty result${
+                        gmailProgress.skipped > 1 ? "s" : ""
+                      } skipped)`}
+                  </>
+                ) : (
+                  `Saving to Gmail: ${gmailProgress.sent} / ${gmailProgress.total}...`
+                )}
+              </div>
+            )}
+
             {results.map((r, i) => (
               <div
                 key={i}
                 className="bg-white rounded-2xl p-5 border border-glacier/10"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-mono text-xs text-thaw">
-                    {r.lead.name} · {r.lead.company}
-                  </p>
-                  <div className="flex gap-2">
+                <div className="flex items-start justify-between mb-2 gap-3 flex-wrap">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={selected.has(i)}
+                      onChange={() => toggleSelect(i)}
+                    />
+                    <div>
+                      <p className="font-mono text-xs text-thaw">
+                        {r.lead.name} · {r.lead.company}
+                      </p>
+                      <p className="font-mono text-[11px] text-mist">
+                        {r.lead.email || "no email provided"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => copyToClipboard(r.email, i)}
                       className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
@@ -320,14 +516,61 @@ export default function ToolPage() {
                     >
                       Open in email
                     </a>
+                    <button
+                      onClick={() => startEdit(i)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => regenerate(i)}
+                      disabled={regeneratingIndex === i}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors disabled:opacity-50"
+                    >
+                      {regeneratingIndex === i ? "Regenerating..." : "Regenerate"}
+                    </button>
                   </div>
                 </div>
-                <p className="text-sm italic text-glacier/80 mb-2">
-                  {r.opener}
-                </p>
-                <p className="text-sm whitespace-pre-wrap text-glacier/90">
-                  {r.email}
-                </p>
+
+                {editingIndex === i ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={5}
+                      className="w-full border border-glacier/15 rounded-xl px-3 py-2 text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => saveEdit(i)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={clearEditText}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-red-300 hover:text-red-500 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm italic text-glacier/80 mb-2">
+                      {r.opener}
+                    </p>
+                    <p className="text-sm whitespace-pre-wrap text-glacier/90">
+                      {r.email}
+                    </p>
+                  </>
+                )}
               </div>
             ))}
           </div>
