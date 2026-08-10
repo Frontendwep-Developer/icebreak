@@ -124,13 +124,11 @@ export default function ToolPage() {
       setError("Please enter your email first");
       return;
     }
-    const res = await fetch("/api/lemonsqueezy/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
+    const baseUrl = process.env.NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL;
+    const url = `${baseUrl}?checkout[email]=${encodeURIComponent(
+      email
+    )}&checkout[custom][user_email]=${encodeURIComponent(email)}`;
+    window.location.href = url;
   }
 
   function handleConnectGmail() {
