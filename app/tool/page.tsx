@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Papa from "papaparse";
 
 type Lead = { name: string; company: string; context: string; email: string };
 type ResultItem = {
@@ -8,8 +9,15 @@ type ResultItem = {
   opener: string;
   email: string;
 };
+type CsvMapping = {
+  name: string;
+  company: string;
+  context: string;
+  email: string;
+};
 
 const GMAIL_BATCH_SIZE = 10;
+const MAX_LEADS = 25;
 
 export default function ToolPage() {
   const [email, setEmail] = useState("");
@@ -22,6 +30,17 @@ export default function ToolPage() {
   );
   const [ownTemplateText, setOwnTemplateText] = useState("");
   const [leadsRaw, setLeadsRaw] = useState("");
+  const [leadInputMode, setLeadInputMode] = useState<"paste" | "csv">("paste");
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
+  const [csvMapping, setCsvMapping] = useState<CsvMapping>({
+    name: "",
+    company: "",
+    context: "",
+    email: "",
+  });
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvError, setCsvError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [needsUpgrade, setNeedsUpgrade] = useState(false);
@@ -146,12 +165,80 @@ export default function ToolPage() {
       });
   }
 
+  // --- CSV upload ---
+
+  function guessMapping(headers: string[]): CsvMapping {
+    const find = (keywords: string[]) =>
+      headers.find((h) =>
+        keywords.some((k) => h.toLowerCase().includes(k))
+      ) || "";
+
+    return {
+      name: find(["name", "full name", "first"]),
+      company: find(["company", "organization", "org"]),
+      email: find(["email", "e-mail"]),
+      context: find(["context", "note", "website", "about", "linkedin"]),
+    };
+  }
+
+  function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvError("");
+    setCsvFileName(file.name);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const fields = (results.meta.fields || []).filter(Boolean);
+        if (fields.length === 0) {
+          setCsvError("Couldn't read any columns from this file.");
+          return;
+        }
+        const rows = results.data as Record<string, string>[];
+        setCsvHeaders(fields);
+        setCsvRows(rows.slice(0, MAX_LEADS));
+        setCsvMapping(guessMapping(fields));
+        if (rows.length > MAX_LEADS) {
+          setCsvError(
+            `This file has ${rows.length} rows — only the first ${MAX_LEADS} will be used per batch.`
+          );
+        }
+      },
+      error: (err) => {
+        setCsvError("Couldn't parse this file: " + err.message);
+      },
+    });
+  }
+
+  function buildLeadsFromCsv(): Lead[] {
+    return csvRows.map((row) => ({
+      name: csvMapping.name ? (row[csvMapping.name] || "").trim() : "",
+      company: csvMapping.company ? (row[csvMapping.company] || "").trim() : "",
+      context: csvMapping.context ? (row[csvMapping.context] || "").trim() : "",
+      email: csvMapping.email ? (row[csvMapping.email] || "").trim() : "",
+    }));
+  }
+
   async function handleGenerate() {
     setError("");
     setNeedsUpgrade(false);
 
-    if (!email || !leadsRaw) {
-      setError("Please fill in your email and lead list");
+    if (!email) {
+      setError("Please enter your email");
+      return;
+    }
+    if (leadInputMode === "paste" && !leadsRaw) {
+      setError("Please fill in your lead list");
+      return;
+    }
+    if (leadInputMode === "csv" && csvRows.length === 0) {
+      setError("Please upload a CSV file first");
+      return;
+    }
+    if (leadInputMode === "csv" && (!csvMapping.name || !csvMapping.email)) {
+      setError("Please map at least the Name and Email columns");
       return;
     }
     if (mode === "ownTemplate" && !ownTemplateText.trim()) {
@@ -163,7 +250,8 @@ export default function ToolPage() {
       return;
     }
 
-    const leads = parseLeads(leadsRaw);
+    const leads =
+      leadInputMode === "csv" ? buildLeadsFromCsv() : parseLeads(leadsRaw);
     setLoading(true);
     try {
       const res = await fetch("/api/generate", {
@@ -632,15 +720,142 @@ export default function ToolPage() {
             </>
           )}
 
-          <textarea
-            placeholder={
-              "John Smith, Acme Inc, acme.com, john@acme.com\nJane Doe, Northwind, website mentions launching in EU next month, jane@northwind.com"
-            }
-            value={leadsRaw}
-            onChange={(e) => setLeadsRaw(e.target.value)}
-            rows={6}
-            className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70 font-mono text-sm"
-          />
+          <div className="flex items-center gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setLeadInputMode("paste")}
+              className={`px-3 py-1.5 rounded-full border transition-colors ${
+                leadInputMode === "paste"
+                  ? "bg-glacier text-frost border-glacier"
+                  : "border-glacier/15 text-glacier/70 hover:border-thaw"
+              }`}
+            >
+              Paste text
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeadInputMode("csv")}
+              className={`px-3 py-1.5 rounded-full border transition-colors ${
+                leadInputMode === "csv"
+                  ? "bg-glacier text-frost border-glacier"
+                  : "border-glacier/15 text-glacier/70 hover:border-thaw"
+              }`}
+            >
+              Upload CSV
+            </button>
+          </div>
+
+          {leadInputMode === "paste" ? (
+            <textarea
+              placeholder={
+                "John Smith, Acme Inc, acme.com, john@acme.com\nJane Doe, Northwind, website mentions launching in EU next month, jane@northwind.com"
+              }
+              value={leadsRaw}
+              onChange={(e) => setLeadsRaw(e.target.value)}
+              rows={6}
+              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70 font-mono text-sm"
+            />
+          ) : (
+            <div className="space-y-3">
+              <label className="block border-2 border-dashed border-glacier/20 rounded-xl px-4 py-6 text-center cursor-pointer hover:border-thaw transition-colors">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCsvFile}
+                  className="hidden"
+                />
+                <span className="text-sm text-glacier/70">
+                  {csvFileName
+                    ? `📄 ${csvFileName} — click to choose a different file`
+                    : "Click to choose a CSV file (exported from Excel or Google Sheets)"}
+                </span>
+              </label>
+
+              {csvError && (
+                <p className="text-xs text-thaw">{csvError}</p>
+              )}
+
+              {csvHeaders.length > 0 && (
+                <div className="border border-glacier/15 rounded-xl p-4 space-y-3 bg-white/70">
+                  <p className="text-xs font-medium text-glacier/80">
+                    Match your columns
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["name", "company", "context", "email"] as const).map(
+                      (field) => (
+                        <div key={field}>
+                          <label className="text-[11px] text-mist block mb-1 capitalize">
+                            {field}
+                            {(field === "name" || field === "email") && " *"}
+                          </label>
+                          <select
+                            value={csvMapping[field]}
+                            onChange={(e) =>
+                              setCsvMapping((prev) => ({
+                                ...prev,
+                                [field]: e.target.value,
+                              }))
+                            }
+                            className="w-full border border-glacier/15 rounded-lg px-2 py-1.5 text-xs bg-white"
+                          >
+                            <option value="">-- none --</option>
+                            {csvHeaders.map((h) => (
+                              <option key={h} value={h}>
+                                {h}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  {csvRows.length > 0 && (
+                    <div>
+                      <p className="text-[11px] text-mist mb-1">
+                        Preview ({csvRows.length} row
+                        {csvRows.length > 1 ? "s" : ""} total)
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="text-xs w-full">
+                          <thead>
+                            <tr className="text-mist">
+                              <th className="text-left pr-3 py-1">Name</th>
+                              <th className="text-left pr-3 py-1">Company</th>
+                              <th className="text-left pr-3 py-1">Context</th>
+                              <th className="text-left pr-3 py-1">Email</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {csvRows.slice(0, 3).map((row, idx) => (
+                              <tr key={idx} className="border-t border-glacier/10">
+                                <td className="pr-3 py-1">
+                                  {csvMapping.name ? row[csvMapping.name] : "—"}
+                                </td>
+                                <td className="pr-3 py-1">
+                                  {csvMapping.company
+                                    ? row[csvMapping.company]
+                                    : "—"}
+                                </td>
+                                <td className="pr-3 py-1">
+                                  {csvMapping.context
+                                    ? row[csvMapping.context]
+                                    : "—"}
+                                </td>
+                                <td className="pr-3 py-1">
+                                  {csvMapping.email ? row[csvMapping.email] : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
