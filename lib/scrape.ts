@@ -27,6 +27,15 @@ function extractTitle(html: string): string {
   return match ? match[1].trim() : "";
 }
 
+function extractHeadings(html: string): string {
+  const matches = [...html.matchAll(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi)];
+  return matches
+    .map((m) => stripTags(m[1]))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(". ");
+}
+
 export async function scrapeWebsite(url: string): Promise<string> {
   try {
     const fullUrl = url.startsWith("http") ? url : `https://${url}`;
@@ -44,6 +53,7 @@ export async function scrapeWebsite(url: string): Promise<string> {
     const html = await res.text();
 
     const title = extractTitle(html);
+    const headings = extractHeadings(html);
     const description =
       extractMeta(html, "description") ||
       extractMeta(html, "og:description");
@@ -52,7 +62,7 @@ export async function scrapeWebsite(url: string): Promise<string> {
     // most sites put hero/intro copy right there
     const bodyText = stripTags(html).slice(0, 1200);
 
-    const combined = [title, description, bodyText]
+    const combined = [title, headings, description, bodyText]
       .filter(Boolean)
       .join(". ")
       .slice(0, 1500);

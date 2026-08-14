@@ -52,6 +52,8 @@ export default function ToolPage() {
   const [gmailStatus, setGmailStatus] = useState<
     "idle" | "connected" | "error"
   >("idle");
+  const [followups, setFollowups] = useState<any[]>([]);
+  const [followupBusyId, setFollowupBusyId] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -108,6 +110,60 @@ export default function ToolPage() {
       // localStorage may be unavailable (e.g. private browsing) — safe to ignore
     }
   }, [email, senderName, productDescription, tone, language]);
+
+  // Fetch due follow-up reminders whenever we know the user's email
+  useEffect(() => {
+    if (!email) return;
+    fetchFollowups();
+  }, [email]);
+
+  async function fetchFollowups() {
+    if (!email) return;
+    try {
+      const res = await fetch(
+        `/api/followups?email=${encodeURIComponent(email)}`
+      );
+      const data = await res.json();
+      if (res.ok) setFollowups(data.due || []);
+    } catch {
+      // Non-critical — silently ignore
+    }
+  }
+
+  async function confirmFollowup(id: string) {
+    setFollowupBusyId(id);
+    try {
+      const res = await fetch("/api/followups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Could not create follow-up");
+        return;
+      }
+      setFollowups((prev) => prev.filter((f) => f.id !== id));
+    } catch (e: any) {
+      setError("Network error: " + e.message);
+    } finally {
+      setFollowupBusyId(null);
+    }
+  }
+
+  async function dismissFollowup(id: string) {
+    setFollowupBusyId(id);
+    try {
+      await fetch("/api/followups", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, id }),
+      });
+      setFollowups((prev) => prev.filter((f) => f.id !== id));
+    } finally {
+      setFollowupBusyId(null);
+    }
+  }
 
   function copyToClipboard(text: string, index: number) {
     navigator.clipboard.writeText(text);
@@ -498,6 +554,8 @@ export default function ToolPage() {
         await new Promise((r) => setTimeout(r, 1000));
       }
     }
+    // Refresh follow-up reminders since we just tracked new sent emails
+    fetchFollowups();
   }
 
   // --- Lead status sidebar ---
@@ -588,6 +646,44 @@ export default function ToolPage() {
         {gmailStatus === "error" && (
           <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             Something went wrong connecting Gmail. Please try again.
+          </div>
+        )}
+
+        {followups.length > 0 && (
+          <div className="mb-4 border border-thaw/30 bg-thaw/5 rounded-2xl p-4 space-y-3">
+            <p className="text-sm font-medium text-glacier">
+              ⏰ {followups.length} follow-up
+              {followups.length > 1 ? "s" : ""} due
+            </p>
+            {followups.map((f) => (
+              <div
+                key={f.id}
+                className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-2.5 flex-wrap"
+              >
+                <span className="text-sm text-glacier/80">
+                  {f.lead_name} · {f.lead_company} — sent{" "}
+                  {new Date(f.drafted_at).toLocaleDateString()}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => confirmFollowup(f.id)}
+                    disabled={followupBusyId === f.id}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition disabled:opacity-50"
+                  >
+                    {followupBusyId === f.id
+                      ? "Creating..."
+                      : "Draft follow-up"}
+                  </button>
+                  <button
+                    onClick={() => dismissFollowup(f.id)}
+                    disabled={followupBusyId === f.id}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw transition disabled:opacity-50"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -698,6 +794,13 @@ export default function ToolPage() {
                     <option value="Turkish">Turkish</option>
                     <option value="Italian">Italian</option>
                   </select>
+                  {language !== "English" && (
+                    <p className="text-[11px] text-thaw mt-1">
+                      ⚠️ Non-English output is in early testing — please
+                      review before sending, occasional word mix-ups can
+                      happen.
+                    </p>
+                  )}
                 </div>
               </div>
               <p className="text-xs text-mist -mt-2">

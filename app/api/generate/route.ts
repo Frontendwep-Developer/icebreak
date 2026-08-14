@@ -27,7 +27,7 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
   casual: "casual and conversational, like messaging a peer",
 };
 
-async function callGroq(prompt: string) {
+async function callGroq(prompt: string, temperature = 0.9) {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -37,6 +37,7 @@ async function callGroq(prompt: string) {
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       max_tokens: 400,
+      temperature,
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: prompt }],
     }),
@@ -209,13 +210,18 @@ export async function POST(req: NextRequest) {
 Sender's product/service: ${productDescription}
 
 Tone: ${toneDescription}
-Write the entire output in ${outputLanguage}.
+
+CRITICAL LANGUAGE RULE: Write the entire output only in ${outputLanguage}. Every single word must be in ${outputLanguage} — do not mix in words, phrases, or spelling from English or any other language, even accidentally. Before finishing, re-read your output and correct any word that isn't in ${outputLanguage}.
 
 Use {name} as a placeholder for the recipient's first name and {company} as a placeholder for their company name — these will be substituted automatically for each recipient. Do not write a specific company or person; keep it generic enough to work for anyone, while still using {name} and {company} naturally.
 
 Write:
 1. One opening line (1 sentence) using {name} and/or {company}.
-2. A short email (under 120 words) that flows from that opener into the offer, ends with a low-friction call to action (e.g. "worth a quick chat?").
+2. A short email (under 120 words) that flows from that opener into the offer, ends with a natural call to action.
+
+Hard rules:
+- Avoid generic filler like "commitment to innovation" or "cutting-edge" — keep it plain and direct instead.
+- Do not use a stock closing line like "Worth a quick chat?" — write a natural, specific call to action.
 
 Return ONLY valid JSON, no markdown, in this exact shape:
 {"opener": "...", "email": "..."}`;
@@ -280,6 +286,7 @@ Return ONLY valid JSON, no markdown, in this exact shape:
         if (context && looksLikeUrl(context)) {
           const scraped = await scrapeWebsite(context);
           if (scraped) context = scraped;
+          console.log(`Scraped context for ${lead.company}:`, context.slice(0, 300));
         }
 
         const prompt = `You are helping ${senderName || "a sender"} write a short, genuinely personal cold outreach email.
@@ -292,11 +299,19 @@ Company: ${lead.company}
 Context about them (website note, LinkedIn, recent news, or scraped website content): ${context}
 
 Tone: ${toneDescription}
-Write the entire output in ${outputLanguage}.
+
+CRITICAL LANGUAGE RULE: Write the entire output only in ${outputLanguage}. Every single word must be in ${outputLanguage} — do not mix in words, phrases, or spelling from English or any other language, even accidentally. Before finishing, re-read your output and correct any word that isn't in ${outputLanguage}.
 
 Write:
 1. One specific opening line (1 sentence) that proves this wasn't copy-pasted — reference the context above.
-2. A short email (under 120 words) that flows from that opener into the offer, ends with a low-friction call to action (e.g. "worth a quick chat?").
+2. A short email (under 120 words) that flows from that opener into the offer, ends with a natural call to action.
+
+Hard rules — read carefully, these are graded:
+- CRITICAL: Only reference facts, product names, or details that literally appear in the "Context about them" text above. Never invent, guess, or embellish a product name, feature, statistic, or event that isn't explicitly stated in the context. Fabricating a specific-sounding detail is worse than being generic — it makes the sender look like they don't actually know the company, which destroys trust immediately.
+- If the context is vague, short, or generic (e.g. it's just a title or a one-line description with no concrete specifics), do NOT invent specifics to sound impressive. Instead, either (a) reference the company's general industry/focus in an honest, low-key way, or (b) keep the opener brief and admit you're reaching out cold rather than pretending deep research. A slightly less impressive but honest opener beats a fabricated one every time.
+- Do NOT use generic marketing filler like "commitment to innovation", "innovative approach", "cutting-edge", "impressed by your commitment to excellence", or similar vague praise.
+- Do NOT end with "Worth a quick chat?" or any fixed phrase — vary the call to action naturally each time (e.g. ask a specific question, suggest a concrete next step, or just state interest plainly). Never reuse the same closing line twice.
+- Vary sentence structure and phrasing — do not follow a rigid template of "[praise] + [pitch] + [CTA]" every time.
 
 Return ONLY valid JSON, no markdown, in this exact shape:
 {"opener": "...", "email": "..."}`;
