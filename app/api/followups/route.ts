@@ -88,7 +88,7 @@ Return ONLY valid JSON, no markdown, in this exact shape:
         model: "qwen/qwen3.6-27b",
         max_tokens: 200,
         temperature: 0.9,
-        response_format: { type: "json_object" },
+
         messages: [{ role: "user", content: prompt }],
       }),
     });

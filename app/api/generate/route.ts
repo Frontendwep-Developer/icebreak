@@ -38,13 +38,14 @@ async function callGroq(prompt: string, temperature = 0.9) {
       model: "qwen/qwen3.6-27b",
       max_tokens: 400,
       temperature,
-      response_format: { type: "json_object" },
+      reasoning_effort: "none",
       messages: [{ role: "user", content: prompt }],
     }),
   });
 
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content || "{}";
+  console.log("Groq raw response:", JSON.stringify(data).slice(0, 500));
   const cleaned = text.replace(/```json|```/g, "").trim();
 
   let parsed;
@@ -63,7 +64,7 @@ async function callGroq(prompt: string, temperature = 0.9) {
     }
   }
 
-  if (!parsed.email) parsed.email = parsed.opener || cleaned;
+
   return parsed;
 }
 
