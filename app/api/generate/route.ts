@@ -217,8 +217,18 @@ CRITICAL LANGUAGE RULE: Write the entire output only in ${outputLanguage}. Every
 Use {name} as a placeholder for the recipient's first name and {company} as a placeholder for their company name — these will be substituted automatically for each recipient. Do not write a specific company or person; keep it generic enough to work for anyone, while still using {name} and {company} naturally.
 
 Write:
-1. One opening line (1 sentence) using {name} and/or {company}.
-2. A short email (under 120 words) that flows from that opener into the offer, ends with a natural call to action.
+1. One specific opening line (1 sentence) that proves this wasn't copy-pasted — reference the context above.
+2. A short email built from 3-4 short sentences:
+   - Sentence 1: the personalized opener (references the context).
+   - Sentence 2: a single sentence stating the value/offer, as concretely as possible.
+   - Sentence 3 (optional): one short sentence of credibility or specificity, if it adds real value.
+   - Final sentence: one short, natural call to action.
+${tone === "short"
+  ? "Keep the entire email between 30-50 words total — this style should feel noticeably shorter and punchier than a standard email."
+  : "Keep the entire email between 50-80 words total. Do not go under 50 words — very short emails can feel templated. Do not pad with filler to hit the count either."
+}
+
+FORMATTING RULE: Write the sentences as plain continuous text separated only by a single space or single line break — do NOT add blank lines, double line breaks, or extra spacing between them. The output should read as one compact block, not visually separated paragraphs.
 
 Hard rules:
 - Avoid generic filler like "commitment to innovation" or "cutting-edge" — keep it plain and direct instead.
@@ -305,10 +315,22 @@ CRITICAL LANGUAGE RULE: Write the entire output only in ${outputLanguage}. Every
 
 Write:
 1. One specific opening line (1 sentence) that proves this wasn't copy-pasted — reference the context above.
-2. A short email (under 120 words) that flows from that opener into the offer, ends with a natural call to action.
+2. A short email built from 3-4 short sentences:
+   - Sentence 1: the personalized opener (references the context).
+   - Sentence 2: a single sentence stating the value/offer, as concretely as possible.
+   - Sentence 3 (optional): one short sentence of credibility or specificity, if it adds real value.
+   - Final sentence: one short, natural call to action.
+${tone === "short"
+  ? "Keep the entire email between 30-50 words total — this style should feel noticeably shorter and punchier than a standard email."
+  : "Keep the entire email between 50-80 words total. Do not go under 50 words — very short emails can feel templated. Do not pad with filler to hit the count either."
+}
+
+FORMATTING RULE: Write the sentences as plain continuous text separated only by a single space or single line break — do NOT add blank lines, double line breaks, or extra spacing between them. The output should read as one compact block, not visually separated paragraphs.
 
 Hard rules — read carefully, these are graded:
-- CRITICAL: Only reference facts, product names, or details that literally appear in the "Context about them" text above. Never invent, guess, or embellish a product name, feature, statistic, or event that isn't explicitly stated in the context. Fabricating a specific-sounding detail is worse than being generic — it makes the sender look like they don't actually know the company, which destroys trust immediately.
+- CRITICAL: Only reference facts, product names, or details about the LEAD/COMPANY that literally appear in the "Context about them" text above. Never invent, guess, or embellish a product name, feature, statistic, or event about them that isn't explicitly stated in the context.
+- CRITICAL: Never invent statistics, results, client outcomes, or numbers about the SENDER's own product/service (e.g. "helped a client cut X by 40%", "clients see immediate results") unless such a specific claim literally appears in the sender's product description above. If the sender's description doesn't include a concrete result, describe the offer in general terms instead — do not fabricate proof points to sound more credible.
+- Fabricating any specific-sounding detail — about the lead or about the sender — is worse than being generic. It creates false claims the sender never made and destroys trust immediately if noticed.
 - If the context is vague, short, or generic (e.g. it's just a title or a one-line description with no concrete specifics), do NOT invent specifics to sound impressive. Instead, either (a) reference the company's general industry/focus in an honest, low-key way, or (b) keep the opener brief and admit you're reaching out cold rather than pretending deep research. A slightly less impressive but honest opener beats a fabricated one every time.
 - Do NOT use generic marketing filler like "commitment to innovation", "innovative approach", "cutting-edge", "impressed by your commitment to excellence", or similar vague praise.
 - Do NOT end with "Worth a quick chat?" or any fixed phrase — vary the call to action naturally each time (e.g. ask a specific question, suggest a concrete next step, or just state interest plainly). Never reuse the same closing line twice.

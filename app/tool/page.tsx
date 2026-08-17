@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Papa from "papaparse";
+import Navbar from "@/components/Navbar";
 
 type Lead = { name: string; company: string; context: string; email: string };
 type ResultItem = {
@@ -74,6 +75,8 @@ export default function ToolPage() {
   const [editedIndices, setEditedIndices] = useState<Set<number>>(new Set());
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
@@ -282,7 +285,7 @@ export default function ToolPage() {
     setNeedsUpgrade(false);
 
     if (!email) {
-      setError("Please enter your email");
+      setError("Please set your account email first");
       return;
     }
     if (leadInputMode === "paste" && !leadsRaw) {
@@ -357,7 +360,7 @@ export default function ToolPage() {
 
   function handleUpgrade() {
     if (!email) {
-      setError("Please enter your email first");
+      setError("Please set your account email first");
       return;
     }
     const baseUrl = process.env.NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL;
@@ -369,7 +372,7 @@ export default function ToolPage() {
 
   function handleConnectGmail() {
     if (!email) {
-      setError("Please enter your email first");
+      setError("Please set your account email first");
       return;
     }
     window.location.href = `/api/auth/google?email=${encodeURIComponent(email)}`;
@@ -382,6 +385,12 @@ export default function ToolPage() {
     setProductDescription("");
     setTone("friendly");
     setLanguage("English");
+  }
+
+  function saveEmailChange() {
+    if (!emailInput.trim()) return;
+    setEmail(emailInput.trim());
+    setEditingEmail(false);
   }
 
   // --- Selection helpers ---
@@ -603,29 +612,63 @@ export default function ToolPage() {
 
   return (
     <main className="min-h-screen bg-frost">
-      <nav className="max-w-4xl mx-auto flex items-center justify-between px-6 py-6">
-        <a href="/" className="font-display font-semibold text-lg">
-          ice<span className="text-thaw">break</span>
-        </a>
-        <div className="flex items-center gap-4">
-          {usage && (
-            <span className="font-mono text-xs text-mist">
-              {usage.used} / {usage.limit} used
-            </span>
-          )}
-          <button
-            onClick={handleUpgrade}
-            className="text-sm font-medium px-4 py-2 rounded-full border border-thaw text-thaw hover:bg-thaw hover:text-white transition-colors"
-          >
-            Upgrade to Pro
-          </button>
-        </div>
-      </nav>
+      <Navbar variant="app" />
 
       <section className="max-w-4xl mx-auto px-6 pb-24">
         <h1 className="font-display text-3xl font-semibold mb-2">
           Generate your emails
         </h1>
+
+        {/* Account identity — separate from the "sender name" used inside emails */}
+        <div className="mb-4 flex items-center gap-2 flex-wrap text-sm">
+          {editingEmail ? (
+            <>
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="you@example.com"
+                className="border border-glacier/15 rounded-xl px-3 py-1.5 bg-white/70"
+                autoFocus
+              />
+              <button
+                onClick={saveEmailChange}
+                className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingEmail(false)}
+                className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <span className="text-glacier/70">
+              Signed in as{" "}
+              <span className="font-mono text-glacier">
+                {email || "no email set"}
+              </span>{" "}
+              ·{" "}
+              <button
+                onClick={() => {
+                  setEmailInput(email);
+                  setEditingEmail(true);
+                }}
+                className="text-thaw underline"
+              >
+                Change
+              </button>
+              {usage && (
+                <span className="font-mono text-xs text-mist ml-2">
+                  · {usage.used} / {usage.limit} used
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+
         <p className="text-glacier/70 mb-8">
           One lead per line:{" "}
           <span className="font-mono text-sm">Name, Company, Context, Email</span>
@@ -688,22 +731,13 @@ export default function ToolPage() {
         )}
 
         <div className="frosted rounded-2xl p-6 space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <input
-              type="email"
-              placeholder="Your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
-            />
-            <input
-              type="text"
-              placeholder="Your name (for the email sign-off)"
-              value={senderName}
-              onChange={(e) => setSenderName(e.target.value)}
-              className="border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="Your name (for the email sign-off)"
+            value={senderName}
+            onChange={(e) => setSenderName(e.target.value)}
+            className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+          />
           <div className="flex items-center gap-4 text-sm flex-wrap">
             <label className="flex items-center gap-2 cursor-pointer">
               <input

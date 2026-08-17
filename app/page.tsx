@@ -1,20 +1,10 @@
 import Link from "next/link";
+import Navbar from "@/components/Navbar";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-frost">
-      {/* Nav */}
-      <nav className="max-w-6xl mx-auto flex items-center justify-between px-6 py-6">
-        <span className="font-display font-semibold text-lg tracking-tight">
-          ice<span className="text-thaw">break</span>
-        </span>
-        <Link
-          href="/tool"
-          className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
-        >
-          Try it free →
-        </Link>
-      </nav>
+      <Navbar variant="landing" />
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-16 pb-20 grid md:grid-cols-2 gap-12 items-center">
@@ -84,7 +74,10 @@ export default function Home() {
       </section>
 
       {/* How it works */}
-      <section className="max-w-6xl mx-auto px-6 py-16 border-t border-glacier/10">
+      <section
+        id="how-it-works"
+        className="max-w-6xl mx-auto px-6 py-16 border-t border-glacier/10 scroll-mt-24"
+      >
         <h2 className="font-display text-2xl font-semibold mb-10">
           How it works
         </h2>
@@ -118,7 +111,10 @@ export default function Home() {
       </section>
 
       {/* Pricing */}
-      <section className="max-w-6xl mx-auto px-6 py-16 border-t border-glacier/10">
+      <section
+        id="pricing"
+        className="max-w-6xl mx-auto px-6 py-16 border-t border-glacier/10 scroll-mt-24"
+      >
         <h2 className="font-display text-2xl font-semibold mb-10">
           Simple pricing
         </h2>
