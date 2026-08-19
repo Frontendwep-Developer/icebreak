@@ -152,6 +152,35 @@ export default function ProfilePage() {
           </p>
         </div>
 
+        {/* Password — visual placeholder, not yet functional */}
+        <div className="frosted rounded-2xl p-6 mb-4">
+          <p className="text-xs text-mist mb-2">Password</p>
+          <div className="grid gap-3">
+            <input
+              type="password"
+              placeholder="Current password"
+              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+              disabled
+            />
+            <input
+              type="password"
+              placeholder="New password"
+              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+              disabled
+            />
+            <button
+              disabled
+              className="w-full border border-glacier/15 text-glacier/40 font-medium py-2.5 rounded-full cursor-not-allowed"
+            >
+              Update password
+            </button>
+          </div>
+          <p className="text-xs text-mist mt-2">
+            Password login is coming soon — for now your account is
+            identified by email only.
+          </p>
+        </div>
+
         {!email ? (
           <p className="text-sm text-glacier/60">
             Enter your account email above to see your account details.

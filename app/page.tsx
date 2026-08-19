@@ -23,7 +23,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex items-center gap-4">
             <Link
-              href="/tool"
+              href="/login?mode=signup"
               className="bg-thaw text-white font-medium px-6 py-3 rounded-full hover:brightness-105 transition"
             >
               Generate my first batch
@@ -129,7 +129,7 @@ export default function Home() {
               batch of leads.
             </p>
             <Link
-              href="/tool"
+              href="/login?mode=signup"
               className="block text-center border border-glacier/20 rounded-full py-2.5 font-medium hover:border-thaw transition"
             >
               Start free

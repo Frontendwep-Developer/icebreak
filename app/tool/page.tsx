@@ -23,6 +23,8 @@ const MAX_LEADS = 25;
 export default function ToolPage() {
   const [email, setEmail] = useState("");
   const [senderName, setSenderName] = useState("");
+  const [senderEmailOption, setSenderEmailOption] = useState<"account" | "other">("account");
+  const [customSenderEmail, setCustomSenderEmail] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [tone, setTone] = useState("friendly");
   const [language, setLanguage] = useState("English");
@@ -738,6 +740,42 @@ export default function ToolPage() {
             onChange={(e) => setSenderName(e.target.value)}
             className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
           />
+          <div>
+            <label className="text-xs text-mist block mb-1">Send from</label>
+            <select
+              value={senderEmailOption}
+              onChange={(e) =>
+                setSenderEmailOption(e.target.value as "account" | "other")
+              }
+              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+            >
+              <option value="account">{email || "your account email"}</option>
+              <option value="other">Use a different email...</option>
+            </select>
+            {senderEmailOption === "other" && (
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="email"
+                  placeholder="you@yourcompany.com"
+                  value={customSenderEmail}
+                  onChange={(e) => setCustomSenderEmail(e.target.value)}
+                  className="flex-1 border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+                />
+                <button
+                  disabled
+                  className="text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15 text-glacier/40 cursor-not-allowed whitespace-nowrap"
+                >
+                  Connect email
+                </button>
+              </div>
+            )}
+            {senderEmailOption === "other" && (
+              <p className="text-xs text-mist mt-1">
+                Sending from a different email is coming soon — you&apos;ll
+                be able to connect it here.
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-4 text-sm flex-wrap">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
