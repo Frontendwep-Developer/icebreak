@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scrapeWebsite, looksLikeUrl } from "@/lib/scrape";
 import { checkGroqCapacity } from "@/lib/rateGuard";
+import { getVerifiedUser } from "@/lib/auth";
 
 // Sequential Groq calls (to respect rate limits) can take a while for large
 // batches, so we raise the max execution time for this route.
@@ -76,8 +77,13 @@ function fillTemplate(text: string, lead: Lead) {
 
 export async function POST(req: NextRequest) {
   try {
+    const authUser = await getVerifiedUser(req);
+    if (!authUser) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    const email = authUser.email;
+
     const {
-      email,
       leads,
       productDescription,
       senderName,
@@ -87,9 +93,9 @@ export async function POST(req: NextRequest) {
       ownTemplate,
     } = await req.json();
 
-    if (!email || !Array.isArray(leads) || leads.length === 0) {
+    if (!Array.isArray(leads) || leads.length === 0) {
       return NextResponse.json(
-        { error: "email and leads are required" },
+        { error: "leads are required" },
         { status: 400 }
       );
     }
@@ -112,7 +118,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       const { data: newUser, error: insertErr } = await supabaseAdmin
         .from("users")
-        .insert({ email, plan: "free", credits_used: 0, period: currentPeriod })
+        .insert({ email, user_id: authUser.id, plan: "free", credits_used: 0, period: currentPeriod })
         .select()
         .single();
       if (insertErr) throw insertErr;

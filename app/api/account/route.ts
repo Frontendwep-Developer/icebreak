@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getVerifiedEmail } from "@/lib/auth";
 
 const FREE_MONTHLY_LIMIT = 10;
 const PRO_MONTHLY_LIMIT = 500;
 const TEMPLATE_MONTHLY_LIMIT = 200;
 
-// GET /api/account?email=... — account overview for the profile page
+// GET /api/account — account overview for the profile page
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
+  const email = await getVerifiedEmail(req);
   if (!email) {
-    return NextResponse.json({ error: "email is required" }, { status: 400 });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const { data: user } = await supabaseAdmin
@@ -46,10 +47,12 @@ export async function GET(req: NextRequest) {
 // POST /api/account — update account-level settings (currently: follow-up days, disconnect Gmail)
 export async function POST(req: NextRequest) {
   try {
-    const { email, action, defaultFollowupDays } = await req.json();
+    const email = await getVerifiedEmail(req);
     if (!email) {
-      return NextResponse.json({ error: "email is required" }, { status: 400 });
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+
+    const { action, defaultFollowupDays } = await req.json();
 
     if (action === "disconnect_gmail") {
       await supabaseAdmin

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import { supabaseClient } from "@/lib/supabaseClient";
 
 type Account = {
   exists: boolean;
@@ -15,34 +17,76 @@ type Account = {
 };
 
 export default function ProfilePage() {
-  const [email, setEmail] = useState("");
-  const [editingEmail, setEditingEmail] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
+  const router = useRouter();
+
+  const [authChecked, setAuthChecked] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(false);
   const [followupDays, setFollowupDays] = useState(3);
   const [savedMessage, setSavedMessage] = useState("");
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("icebreak_template");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.email) setEmail(parsed.email);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  // --- Change email ---
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [emailSaving, setEmailSaving] = useState(false);
+
+  // --- Change password ---
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   useEffect(() => {
-    if (email) fetchAccount();
-  }, [email]);
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.push("/login");
+        return;
+      }
+      setUserEmail(data.session.user.email || "");
+      setAccessToken(data.session.access_token);
+      setAuthChecked(true);
+    });
+
+    const { data: listener } = supabaseClient.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session) {
+          router.push("/login");
+          return;
+        }
+        setUserEmail(session.user.email || "");
+        setAccessToken(session.access_token);
+      }
+    );
+
+    return () => listener.subscription.unsubscribe();
+  }, [router]);
+
+  useEffect(() => {
+    if (accessToken) fetchAccount();
+  }, [accessToken]);
+
+  function authHeaders() {
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    };
+  }
+
+  async function handleSignOut() {
+    await supabaseClient.auth.signOut();
+    router.push("/login");
+  }
 
   async function fetchAccount() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/account?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`/api/account`, { headers: authHeaders() });
       const data = await res.json();
       if (res.ok) {
         setAccount(data);
@@ -53,30 +97,15 @@ export default function ProfilePage() {
     }
   }
 
-  function saveEmailChange() {
-    if (!emailInput.trim()) return;
-    const newEmail = emailInput.trim();
-    setEmail(newEmail);
-    try {
-      const saved = localStorage.getItem("icebreak_template");
-      const parsed = saved ? JSON.parse(saved) : {};
-      parsed.email = newEmail;
-      localStorage.setItem("icebreak_template", JSON.stringify(parsed));
-    } catch {
-      // ignore
-    }
-    setEditingEmail(false);
-  }
-
   function handleConnectGmail() {
-    window.location.href = `/api/auth/google?email=${encodeURIComponent(email)}`;
+    window.location.href = `/api/auth/google?email=${encodeURIComponent(userEmail)}`;
   }
 
   async function handleDisconnectGmail() {
     await fetch("/api/account", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, action: "disconnect_gmail" }),
+      headers: authHeaders(),
+      body: JSON.stringify({ action: "disconnect_gmail" }),
     });
     fetchAccount();
   }
@@ -84,19 +113,77 @@ export default function ProfilePage() {
   function handleUpgrade() {
     const baseUrl = process.env.NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL;
     const url = `${baseUrl}?checkout[email]=${encodeURIComponent(
-      email
-    )}&checkout[custom][user_email]=${encodeURIComponent(email)}`;
+      userEmail
+    )}&checkout[custom][user_email]=${encodeURIComponent(userEmail)}`;
     window.location.href = url;
   }
 
   async function saveFollowupDays() {
     await fetch("/api/account", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, defaultFollowupDays: followupDays }),
+      headers: authHeaders(),
+      body: JSON.stringify({ defaultFollowupDays: followupDays }),
     });
     setSavedMessage("Saved ✓");
     setTimeout(() => setSavedMessage(""), 2000);
+  }
+
+  async function saveEmailChange() {
+    setEmailError("");
+    setEmailMessage("");
+    const trimmed = emailInput.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      setEmailError("Please enter a valid email");
+      return;
+    }
+    setEmailSaving(true);
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ email: trimmed });
+      if (error) {
+        setEmailError(error.message);
+        return;
+      }
+      setEmailMessage(
+        "Confirmation email sent — check your inbox (and the old address) to finish the change. Your plan, credits, and Gmail connection will move automatically once confirmed."
+      );
+      setEditingEmail(false);
+    } finally {
+      setEmailSaving(false);
+    }
+  }
+
+  async function savePasswordChange() {
+    setPasswordError("");
+    setPasswordMessage("");
+    if (newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords don't match");
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+      if (error) {
+        setPasswordError(error.message);
+        return;
+      }
+      setPasswordMessage("Password updated ✓");
+      setNewPassword("");
+      setConfirmPassword("");
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  if (!authChecked) {
+    return (
+      <main className="min-h-screen bg-frost flex items-center justify-center">
+        <p className="text-sm text-glacier/50">Loading...</p>
+      </main>
+    );
   }
 
   return (
@@ -109,23 +196,29 @@ export default function ProfilePage() {
         {/* Account email */}
         <div className="frosted rounded-2xl p-6 mb-4">
           <p className="text-xs text-mist mb-2">Signed in as</p>
+
           {editingEmail ? (
             <div className="flex gap-2">
               <input
                 type="email"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                placeholder={email || "you@example.com"}
+                placeholder={userEmail}
                 className="flex-1 border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+                autoFocus
               />
               <button
                 onClick={saveEmailChange}
-                className="bg-thaw text-white font-medium px-4 py-2.5 rounded-full"
+                disabled={emailSaving}
+                className="bg-thaw text-white font-medium px-4 py-2.5 rounded-full disabled:opacity-50"
               >
-                Save
+                {emailSaving ? "Saving..." : "Save"}
               </button>
               <button
-                onClick={() => setEditingEmail(false)}
+                onClick={() => {
+                  setEditingEmail(false);
+                  setEmailError("");
+                }}
                 className="border border-glacier/15 font-medium px-4 py-2.5 rounded-full"
               >
                 Cancel
@@ -133,59 +226,76 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <p className="font-mono text-lg">{email || "No email set"}</p>
-              <button
-                onClick={() => {
-                  setEmailInput(email);
-                  setEditingEmail(true);
-                }}
-                className="text-sm text-thaw underline"
-              >
-                Change
-              </button>
+              <p className="font-mono text-lg">{userEmail}</p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setEmailInput(userEmail);
+                    setEditingEmail(true);
+                    setEmailMessage("");
+                    setEmailError("");
+                  }}
+                  className="text-sm text-thaw underline"
+                >
+                  Change
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="text-sm text-glacier/60 underline hover:text-red-500"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           )}
+
+          {emailError && <p className="text-sm text-red-600 mt-2">{emailError}</p>}
+          {emailMessage && (
+            <p className="text-sm text-green-700 mt-2">{emailMessage}</p>
+          )}
+
           <p className="text-xs text-mist mt-2">
-            This is the email that identifies your account — your usage,
-            plan, and Gmail connection are all tied to it. This is separate
-            from the &quot;sender name&quot; used in your emails.
+            Your usage, plan, and Gmail connection are all tied to this
+            account and will follow you automatically if you change your
+            email.
           </p>
         </div>
 
-        {/* Password — visual placeholder, not yet functional */}
+        {/* Password */}
         <div className="frosted rounded-2xl p-6 mb-4">
           <p className="text-xs text-mist mb-2">Password</p>
           <div className="grid gap-3">
             <input
               type="password"
-              placeholder="Current password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
-              disabled
             />
             <input
               type="password"
-              placeholder="New password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
-              disabled
             />
+            {passwordError && (
+              <p className="text-sm text-red-600">{passwordError}</p>
+            )}
+            {passwordMessage && (
+              <p className="text-sm text-green-700">{passwordMessage}</p>
+            )}
             <button
-              disabled
-              className="w-full border border-glacier/15 text-glacier/40 font-medium py-2.5 rounded-full cursor-not-allowed"
+              onClick={savePasswordChange}
+              disabled={passwordSaving || !newPassword}
+              className="w-full border border-glacier/15 hover:border-thaw hover:text-thaw font-medium py-2.5 rounded-full transition-colors disabled:opacity-40 disabled:hover:border-glacier/15 disabled:hover:text-glacier"
             >
-              Update password
+              {passwordSaving ? "Updating..." : "Update password"}
             </button>
           </div>
-          <p className="text-xs text-mist mt-2">
-            Password login is coming soon — for now your account is
-            identified by email only.
-          </p>
         </div>
 
-        {!email ? (
-          <p className="text-sm text-glacier/60">
-            Enter your account email above to see your account details.
-          </p>
-        ) : loading ? (
+        {!account && loading ? (
           <p className="text-sm text-glacier/60">Loading...</p>
         ) : account ? (
           <>

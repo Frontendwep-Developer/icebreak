@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import { supabaseClient } from "@/lib/supabaseClient";
 
 function LoginContent() {
   const router = useRouter();
@@ -11,39 +12,57 @@ function LoginContent() {
 
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // If they already have a saved account, prefill the email
-    try {
-      const saved = localStorage.getItem("icebreak_template");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.email) setEmail(parsed.email);
-        if (parsed.senderName) setName(parsed.senderName);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  function handleContinue() {
+  async function handleContinue() {
     setError("");
+
     if (!email.trim() || !email.includes("@")) {
       setError("Please enter a valid email");
       return;
     }
-    try {
-      const saved = localStorage.getItem("icebreak_template");
-      const parsed = saved ? JSON.parse(saved) : {};
-      parsed.email = email.trim();
-      if (mode === "signup" && name.trim()) parsed.senderName = name.trim();
-      localStorage.setItem("icebreak_template", JSON.stringify(parsed));
-    } catch {
-      // ignore — localStorage may be unavailable
+    if (!password || password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
     }
-    router.push("/tool");
+
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const { data, error: signUpError } = await supabaseClient.auth.signUp({
+          email: email.trim(),
+          password,
+          options: name.trim() ? { data: { full_name: name.trim() } } : undefined,
+        });
+        if (signUpError) {
+          setError(signUpError.message);
+          return;
+        }
+        // If email confirmation is required, there's no session yet.
+        if (!data.session) {
+          setError(
+            "Check your inbox to confirm your email, then log in."
+          );
+          setMode("login");
+          return;
+        }
+      } else {
+        const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInError) {
+          setError(signInError.message);
+          return;
+        }
+      }
+      router.push("/tool");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -80,8 +99,8 @@ function LoginContent() {
           </h1>
           <p className="text-sm text-glacier/60 mb-6">
             {mode === "login"
-              ? "Enter the email you've used before to pick up where you left off."
-              : "No password needed — just your email. We'll use it to track your free monthly emails."}
+              ? "Enter your email and password to continue."
+              : "Create an account with your email and a password."}
           </p>
 
           <div className="space-y-3">
@@ -96,32 +115,34 @@ function LoginContent() {
             <input
               type="password"
               placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleContinue()}
               className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
             />
             {mode === "signup" && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Your name (optional, used to sign your emails)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleContinue()}
-                  className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
-                />
-                <p className="text-xs text-mist -mt-1">
-                  Password login is coming soon — for now, just your email is
-                  enough to get started.
-                </p>
-              </>
+              <input
+                type="text"
+                placeholder="Your name (optional, used to sign your emails)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+                className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+              />
             )}
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <button
               onClick={handleContinue}
-              className="w-full bg-thaw text-white font-medium py-3 rounded-full hover:brightness-105 transition"
+              disabled={loading}
+              className="w-full bg-thaw text-white font-medium py-3 rounded-full hover:brightness-105 transition disabled:opacity-50"
             >
-              {mode === "login" ? "Log in" : "Create account & continue"}
+              {loading
+                ? "Please wait..."
+                : mode === "login"
+                ? "Log in"
+                : "Create account & continue"}
             </button>
           </div>
 

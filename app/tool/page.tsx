@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import Navbar from "@/components/Navbar";
+import { supabaseClient } from "@/lib/supabaseClient";
 
 type Lead = { name: string; company: string; context: string; email: string };
 type ResultItem = {
@@ -21,7 +23,13 @@ const GMAIL_BATCH_SIZE = 10;
 const MAX_LEADS = 25;
 
 export default function ToolPage() {
-  const [email, setEmail] = useState("");
+  const router = useRouter();
+
+  // --- Auth state ---
+  const [authChecked, setAuthChecked] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+
   const [senderName, setSenderName] = useState("");
   const [senderEmailOption, setSenderEmailOption] = useState<"account" | "other">("account");
   const [customSenderEmail, setCustomSenderEmail] = useState("");
@@ -77,21 +85,45 @@ export default function ToolPage() {
   const [editedIndices, setEditedIndices] = useState<Set<number>>(new Set());
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const [editingEmail, setEditingEmail] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // --- Auth check: redirect to /login if not signed in ---
+  useEffect(() => {
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.push("/login");
+        return;
+      }
+      setUserEmail(data.session.user.email || "");
+      setAccessToken(data.session.access_token);
+      setAuthChecked(true);
+    });
+
+    const { data: listener } = supabaseClient.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session) {
+          router.push("/login");
+          return;
+        }
+        setUserEmail(session.user.email || "");
+        setAccessToken(session.access_token);
+      }
+    );
+
+    return () => listener.subscription.unsubscribe();
+  }, [router]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("gmail_connected")) setGmailStatus("connected");
     if (params.get("gmail_error")) setGmailStatus("error");
 
-    // Restore saved template (email, sender name, product description, tone, language)
+    // Restore saved template preferences (sender name, product description, tone, language)
+    // Note: email is no longer stored here — it comes from the authenticated session.
     try {
       const saved = localStorage.getItem("icebreak_template");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.email) setEmail(parsed.email);
         if (parsed.senderName) setSenderName(parsed.senderName);
         if (parsed.productDescription)
           setProductDescription(parsed.productDescription);
@@ -109,25 +141,37 @@ export default function ToolPage() {
     try {
       localStorage.setItem(
         "icebreak_template",
-        JSON.stringify({ email, senderName, productDescription, tone, language })
+        JSON.stringify({ senderName, productDescription, tone, language })
       );
     } catch {
       // localStorage may be unavailable (e.g. private browsing) — safe to ignore
     }
-  }, [email, senderName, productDescription, tone, language]);
+  }, [senderName, productDescription, tone, language]);
 
-  // Fetch due follow-up reminders whenever we know the user's email
+  // Fetch due follow-up reminders once we know the user's session
   useEffect(() => {
-    if (!email) return;
+    if (!accessToken) return;
     fetchFollowups();
-  }, [email]);
+  }, [accessToken]);
+
+  function authHeaders() {
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    };
+  }
+
+  async function handleSignOut() {
+    await supabaseClient.auth.signOut();
+    router.push("/login");
+  }
 
   async function fetchFollowups() {
-    if (!email) return;
+    if (!accessToken) return;
     try {
-      const res = await fetch(
-        `/api/followups?email=${encodeURIComponent(email)}`
-      );
+      const res = await fetch(`/api/followups`, {
+        headers: authHeaders(),
+      });
       const data = await res.json();
       if (res.ok) setFollowups(data.due || []);
     } catch {
@@ -140,8 +184,8 @@ export default function ToolPage() {
     try {
       const res = await fetch("/api/followups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, id }),
+        headers: authHeaders(),
+        body: JSON.stringify({ id }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -161,8 +205,8 @@ export default function ToolPage() {
     try {
       await fetch("/api/followups", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, id }),
+        headers: authHeaders(),
+        body: JSON.stringify({ id }),
       });
       setFollowups((prev) => prev.filter((f) => f.id !== id));
     } finally {
@@ -286,10 +330,6 @@ export default function ToolPage() {
     setError("");
     setNeedsUpgrade(false);
 
-    if (!email) {
-      setError("Please set your account email first");
-      return;
-    }
     if (leadInputMode === "paste" && !leadsRaw) {
       setError("Please fill in your lead list");
       return;
@@ -317,9 +357,8 @@ export default function ToolPage() {
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
-          email,
           senderName,
           productDescription,
           tone,
@@ -361,38 +400,15 @@ export default function ToolPage() {
   }
 
   function handleUpgrade() {
-    if (!email) {
-      setError("Please set your account email first");
-      return;
-    }
     const baseUrl = process.env.NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL;
     const url = `${baseUrl}?checkout[email]=${encodeURIComponent(
-      email
-    )}&checkout[custom][user_email]=${encodeURIComponent(email)}`;
+      userEmail
+    )}&checkout[custom][user_email]=${encodeURIComponent(userEmail)}`;
     window.location.href = url;
   }
 
   function handleConnectGmail() {
-    if (!email) {
-      setError("Please set your account email first");
-      return;
-    }
-    window.location.href = `/api/auth/google?email=${encodeURIComponent(email)}`;
-  }
-
-  function clearSavedTemplate() {
-    localStorage.removeItem("icebreak_template");
-    setEmail("");
-    setSenderName("");
-    setProductDescription("");
-    setTone("friendly");
-    setLanguage("English");
-  }
-
-  function saveEmailChange() {
-    if (!emailInput.trim()) return;
-    setEmail(emailInput.trim());
-    setEditingEmail(false);
+    window.location.href = `/api/auth/google?email=${encodeURIComponent(userEmail)}`;
   }
 
   // --- Selection helpers ---
@@ -485,9 +501,8 @@ export default function ToolPage() {
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
-          email,
           senderName,
           productDescription,
           tone: editTone,
@@ -544,8 +559,8 @@ export default function ToolPage() {
       try {
         const res = await fetch("/api/gmail/create-drafts", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, results: batch }),
+          headers: authHeaders(),
+          body: JSON.stringify({ results: batch }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -612,6 +627,14 @@ export default function ToolPage() {
     );
   }
 
+  if (!authChecked) {
+    return (
+      <main className="min-h-screen bg-frost flex items-center justify-center">
+        <p className="text-sm text-glacier/50">Loading...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-frost">
       <Navbar variant="app" />
@@ -621,66 +644,22 @@ export default function ToolPage() {
           Generate your emails
         </h1>
 
-        {/* Account identity — separate from the "sender name" used inside emails */}
+        {/* Account identity */}
         <div className="mb-4 flex items-center gap-2 flex-wrap text-sm">
-          {editingEmail ? (
-            <>
-              <input
-                type="email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="you@example.com"
-                className="border border-glacier/15 rounded-xl px-3 py-1.5 bg-white/70"
-                autoFocus
-              />
-              <button
-                onClick={saveEmailChange}
-                className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditingEmail(false)}
-                className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <span className="text-glacier/70">
-              Signed in as{" "}
-              <span className="font-mono text-glacier">
-                {email || "no email set"}
-              </span>{" "}
-              ·{" "}
-              <button
-                onClick={() => {
-                  setEmailInput(email);
-                  setEditingEmail(true);
-                }}
-                className="text-thaw underline"
-              >
-                Change
-              </button>
-              {usage && (
-                <span className="font-mono text-xs text-mist ml-2">
-                  · {usage.used} / {usage.limit} used
-                </span>
-              )}
-            </span>
-          )}
+          <span className="text-glacier/70">
+            Signed in as{" "}
+            <span className="font-mono text-glacier">{userEmail}</span>
+            {usage && (
+              <span className="font-mono text-xs text-mist ml-2">
+                · {usage.used} / {usage.limit} used
+              </span>
+            )}
+          </span>
         </div>
 
         <p className="text-glacier/70 mb-8">
           One lead per line:{" "}
           <span className="font-mono text-sm">Name, Company, Context, Email</span>
-          {" · "}
-          <button
-            onClick={clearSavedTemplate}
-            className="underline text-mist hover:text-thaw"
-          >
-            reset saved details
-          </button>
         </p>
 
         {gmailStatus === "connected" && (
@@ -749,7 +728,7 @@ export default function ToolPage() {
               }
               className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
             >
-              <option value="account">{email || "your account email"}</option>
+              <option value="account">{userEmail}</option>
               <option value="other">Use a different email...</option>
             </select>
             {senderEmailOption === "other" && (

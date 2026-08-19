@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getGmailClient, createDraft } from "@/lib/gmailDraft";
+import { getVerifiedEmail } from "@/lib/auth";
 
 const DEFAULT_FOLLOWUP_DAYS = 3;
 
-// GET /api/followups?email=... — list emails that are due for a follow-up
+// GET /api/followups — list emails that are due for a follow-up
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
+  const email = await getVerifiedEmail(req);
   if (!email) {
-    return NextResponse.json({ error: "email is required" }, { status: 400 });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const { data, error } = await supabaseAdmin
@@ -35,12 +36,14 @@ export async function GET(req: NextRequest) {
 // POST /api/followups — user confirms a follow-up draft should be created
 export async function POST(req: NextRequest) {
   try {
-    const { email, id } = await req.json();
-    if (!email || !id) {
-      return NextResponse.json(
-        { error: "email and id are required" },
-        { status: 400 }
-      );
+    const email = await getVerifiedEmail(req);
+    if (!email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
     const { data: row } = await supabaseAdmin
@@ -133,12 +136,14 @@ Return ONLY valid JSON, no markdown, in this exact shape:
 // DELETE /api/followups — dismiss a reminder without sending a follow-up
 export async function DELETE(req: NextRequest) {
   try {
-    const { email, id } = await req.json();
-    if (!email || !id) {
-      return NextResponse.json(
-        { error: "email and id are required" },
-        { status: 400 }
-      );
+    const email = await getVerifiedEmail(req);
+    if (!email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
     await supabaseAdmin
       .from("sent_emails")

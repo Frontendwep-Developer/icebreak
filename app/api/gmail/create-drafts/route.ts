@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getGmailClient, createDraft } from "@/lib/gmailDraft";
+import { getVerifiedEmail } from "@/lib/auth";
 
 type ResultItem = {
   lead: { name: string; company: string; context: string; email: string };
@@ -10,11 +11,16 @@ type ResultItem = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, results } = await req.json();
+    const email = await getVerifiedEmail(req);
+    if (!email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
 
-    if (!email || !Array.isArray(results) || results.length === 0) {
+    const { results } = await req.json();
+
+    if (!Array.isArray(results) || results.length === 0) {
       return NextResponse.json(
-        { error: "email and results are required" },
+        { error: "results are required" },
         { status: 400 }
       );
     }

@@ -88,7 +88,7 @@ export default function Home() {
               d: "Name, company, and a link or note about each — CSV or plain text, no formatting fuss.",
             },
             {
-              t: "Icebreak reads &amp; writes",
+              t: "Icebreak reads & writes",
               d: "The model reads what you gave it about each lead and drafts an opener plus a full email in your voice.",
             },
             {
@@ -100,10 +100,7 @@ export default function Home() {
               <p className="font-mono text-thaw text-sm mb-2">
                 0{i + 1}
               </p>
-              <h3
-                className="font-display font-semibold mb-2"
-                dangerouslySetInnerHTML={{ __html: s.t }}
-              />
+              <h3 className="font-display font-semibold mb-2">{s.t}</h3>
               <p className="text-sm text-glacier/70">{s.d}</p>
             </div>
           ))}
@@ -154,8 +151,18 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="max-w-6xl mx-auto px-6 py-10 text-xs text-mist border-t border-glacier/10">
-        © {new Date().getFullYear()} Icebreak.
+      <footer className="max-w-6xl mx-auto px-6 py-10 border-t border-glacier/10">
+        <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-mist">
+          <span>© {new Date().getFullYear()} Icebreak.</span>
+          <div className="flex items-center gap-5">
+            <Link href="/terms" className="hover:text-thaw transition-colors">
+              Terms of Service
+            </Link>
+            <Link href="/privacy" className="hover:text-thaw transition-colors">
+              Privacy Policy
+            </Link>
+          </div>
+        </div>
       </footer>
     </main>
   );
