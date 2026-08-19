@@ -8,6 +8,8 @@ import { supabaseClient } from "@/lib/supabaseClient";
 // Temporarily hidden — email change UX needs polish before launch.
 // Set to true to re-enable the "Change" button below.
 const SHOW_EMAIL_CHANGE = false;
+
+type Account = {
   exists: boolean;
   plan: string;
   creditsUsed: number;
