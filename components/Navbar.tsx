@@ -91,6 +91,9 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
         <a href="/tool" className={linkClass("/tool")}>
           Generate
         </a>
+        <a href="/history" className={linkClass("/history")}>
+          History
+        </a>
         <a href="/profile" className={linkClass("/profile")}>
           Profile
         </a>

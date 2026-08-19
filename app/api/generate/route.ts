@@ -75,6 +75,30 @@ function fillTemplate(text: string, lead: Lead) {
     .replace(/\{company\}/gi, lead.company || "your company");
 }
 
+async function saveToHistory(
+  email: string,
+  mode: string,
+  results: { lead: Lead; opener: string; email: string; failed?: boolean }[]
+) {
+  const rows = results
+    .filter((r) => r.email && r.email.trim())
+    .map((r) => ({
+      user_email: email,
+      lead_name: r.lead.name,
+      lead_company: r.lead.company,
+      lead_email: r.lead.email,
+      mode,
+      opener: r.opener || "",
+      email_body: r.email,
+    }));
+  if (rows.length === 0) return;
+  try {
+    await supabaseAdmin.from("generation_history").insert(rows);
+  } catch (err) {
+    console.error("Could not save to history:", err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getVerifiedUser(req);
@@ -164,6 +188,8 @@ export async function POST(req: NextRequest) {
         .from("users")
         .update({ template_credits_used: newTemplateUsed })
         .eq("email", email);
+
+      await saveToHistory(email, "ownTemplate", results);
 
       return NextResponse.json({
         results,
@@ -264,6 +290,8 @@ Return ONLY valid JSON, no markdown, in this exact shape:
           .from("users")
           .update({ credits_used: newCreditsUsed })
           .eq("email", email);
+
+        await saveToHistory(email, "sameForAll", results);
 
         return NextResponse.json({
           results,
@@ -370,6 +398,8 @@ Return ONLY valid JSON, no markdown, in this exact shape:
       .from("users")
       .update({ credits_used: newCreditsUsed })
       .eq("email", email);
+
+    await saveToHistory(email, "personalized", results);
 
     return NextResponse.json({
       results,

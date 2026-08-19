@@ -680,6 +680,12 @@ export default function ToolPage() {
 
   function statusFor(r: ResultItem, i: number) {
     if (!r.email.trim()) return { label: "Empty", cls: "text-mist" };
+    if (!r.lead.email.trim()) return { label: "No email", cls: "text-red-500" };
+    const missing: string[] = [];
+    if (!r.lead.name.trim()) missing.push("name");
+    if (!r.lead.company.trim()) missing.push("company");
+    if (missing.length > 0)
+      return { label: `Missing ${missing.join("/")}`, cls: "text-amber-600" };
     if (editedIndices.has(i)) return { label: "Edited", cls: "text-thaw" };
     return { label: "Ready", cls: "text-green-600" };
   }
@@ -1163,30 +1169,35 @@ export default function ToolPage() {
                   </span>
                 )}
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {selected.size > 0 && (
+              <div className="flex flex-col gap-1.5 items-end">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={deleteSelected}
-                    className="text-sm font-medium px-4 py-2 rounded-full border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                    disabled={selected.size === 0}
+                    title={
+                      selected.size === 0
+                        ? "Select results with the checkbox to enable"
+                        : undefined
+                    }
+                    className="text-sm font-medium px-4 py-2 rounded-full border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                   >
                     Delete selected
                   </button>
-                )}
-                <button
-                  onClick={downloadCsv}
-                  className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
-                >
-                  Download CSV
-                </button>
-                {mode === "sameForAll" && (
                   <button
-                    onClick={handleGenerate}
-                    disabled={loading}
-                    className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors disabled:opacity-50"
+                    onClick={downloadCsv}
+                    className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
                   >
-                    {loading ? "Regenerating..." : "Regenerate shared message"}
+                    Download CSV
                   </button>
-                )}
+                  {mode === "sameForAll" && (
+                    <button
+                      onClick={handleGenerate}
+                      disabled={loading}
+                      className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors disabled:opacity-50"
+                    >
+                      {loading ? "Regenerating..." : "Regenerate shared message"}
+                    </button>
+                  )}
                 <button
                   onClick={startMailtoSequence}
                   className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
@@ -1210,6 +1221,7 @@ export default function ToolPage() {
                 >
                   Clear results
                 </button>
+                </div>
               </div>
             </div>
 
