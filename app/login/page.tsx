@@ -1,169 +1,184 @@
-import Link from "next/link";
-import Navbar from "@/components/Navbar";
+"use client";
 
-export default function Home() {
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Navbar from "@/components/Navbar";
+import { supabaseClient } from "@/lib/supabaseClient";
+
+function LoginContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "login";
+
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleContinue() {
+    setError("");
+
+    if (!email.trim() || !email.includes("@")) {
+      setError("Please enter a valid email");
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const { data, error: signUpError } = await supabaseClient.auth.signUp({
+          email: email.trim(),
+          password,
+          options: name.trim() ? { data: { full_name: name.trim() } } : undefined,
+        });
+        if (signUpError) {
+          setError(signUpError.message);
+          return;
+        }
+        // If email confirmation is required, there's no session yet.
+        if (!data.session) {
+          setError(
+            "Check your inbox to confirm your email, then log in."
+          );
+          setMode("login");
+          return;
+        }
+      } else {
+        const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInError) {
+          setError(signInError.message);
+          return;
+        }
+      }
+      router.push("/tool");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-frost">
       <Navbar variant="landing" />
 
-      {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 pt-16 pb-20 grid md:grid-cols-2 gap-12 items-center">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-mist mb-4">
-            for founders, agencies &amp; SDRs
-          </p>
-          <h1 className="font-display text-4xl md:text-5xl font-semibold leading-tight">
-            Cold emails that don&apos;t{" "}
-            <span className="thaw-underline">sound cold.</span>
+      <section className="max-w-md mx-auto px-6 pt-16 pb-24">
+        <div className="frosted rounded-2xl p-8">
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setMode("login")}
+              className={`flex-1 py-2 rounded-full text-sm font-medium transition-colors ${
+                mode === "login"
+                  ? "bg-glacier text-frost"
+                  : "border border-glacier/15 text-glacier/70"
+              }`}
+            >
+              Log in
+            </button>
+            <button
+              onClick={() => setMode("signup")}
+              className={`flex-1 py-2 rounded-full text-sm font-medium transition-colors ${
+                mode === "signup"
+                  ? "bg-glacier text-frost"
+                  : "border border-glacier/15 text-glacier/70"
+              }`}
+            >
+              Sign up
+            </button>
+          </div>
+
+          <h1 className="font-display text-2xl font-semibold mb-1">
+            {mode === "login" ? "Welcome back" : "Create your account"}
           </h1>
-          <p className="mt-6 text-lg text-glacier/70 max-w-md">
-            Paste a list of leads. Icebreak reads each company and writes a
-            genuinely personal opening line and email — in seconds, not
-            hours.
+          <p className="text-sm text-glacier/60 mb-6">
+            {mode === "login"
+              ? "Enter your email and password to continue."
+              : "Create an account with your email and a password."}
           </p>
-          <div className="mt-8 flex items-center gap-4">
-            <Link
-              href="/login?mode=signup"
-              className="bg-thaw text-white font-medium px-6 py-3 rounded-full hover:brightness-105 transition"
-            >
-              Generate my first batch
-            </Link>
-            <span className="text-sm text-mist">
-              10 free emails · no card required
-            </span>
-          </div>
-        </div>
 
-        {/* Signature visual: frozen template -> thawed personalized email */}
-        <div className="relative">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="frosted rounded-2xl p-5 opacity-70">
-              <p className="font-mono text-[10px] text-mist mb-3">
-                GENERIC TEMPLATE
-              </p>
-              <div className="space-y-2">
-                <div className="h-2.5 bg-glacier/10 rounded w-5/6" />
-                <div className="h-2.5 bg-glacier/10 rounded w-full" />
-                <div className="h-2.5 bg-glacier/10 rounded w-4/6" />
-                <div className="h-2.5 bg-glacier/10 rounded w-full" />
-                <div className="h-2.5 bg-glacier/10 rounded w-3/6" />
-              </div>
-              <p className="mt-4 text-xs text-mist italic">
-                &ldquo;Hi there, I wanted to reach out...&rdquo;
-              </p>
-            </div>
-            <div className="rounded-2xl p-5 bg-white shadow-[0_8px_30px_rgba(255,122,69,0.15)] border border-thaw/20">
-              <p className="font-mono text-[10px] text-thaw mb-3">
-                ICEBREAK OUTPUT
-              </p>
-              <div className="space-y-2">
-                <div className="h-2.5 bg-thaw/20 rounded w-full" />
-                <div className="h-2.5 bg-glacier/10 rounded w-5/6" />
-                <div className="h-2.5 bg-glacier/10 rounded w-full" />
-                <div className="h-2.5 bg-glacier/10 rounded w-4/6" />
-              </div>
-              <p className="mt-4 text-xs text-glacier/80 italic">
-                &ldquo;Saw Acme just opened a Berlin office — congrats...&rdquo;
-              </p>
-            </div>
+          <div className="space-y-3">
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+            />
+            {mode === "signup" && (
+              <input
+                type="text"
+                placeholder="Your name (optional, used to sign your emails)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+                className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
+              />
+            )}
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <button
+              onClick={handleContinue}
+              disabled={loading}
+              className="w-full bg-thaw text-white font-medium py-3 rounded-full hover:brightness-105 transition disabled:opacity-50"
+            >
+              {loading
+                ? "Please wait..."
+                : mode === "login"
+                ? "Log in"
+                : "Create account & continue"}
+            </button>
           </div>
-          <p className="text-center text-xs font-mono text-mist mt-3">
-            same lead, same product · one gets replies
+
+          <p className="text-xs text-mist mt-6 text-center">
+            {mode === "login" ? (
+              <>
+                New here?{" "}
+                <button
+                  onClick={() => setMode("signup")}
+                  className="text-thaw underline"
+                >
+                  Sign up
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <button
+                  onClick={() => setMode("login")}
+                  className="text-thaw underline"
+                >
+                  Log in
+                </button>
+              </>
+            )}
           </p>
         </div>
       </section>
-
-      {/* How it works */}
-      <section
-        id="how-it-works"
-        className="max-w-6xl mx-auto px-6 py-16 border-t border-glacier/10 scroll-mt-24"
-      >
-        <h2 className="font-display text-2xl font-semibold mb-10">
-          How it works
-        </h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          {[
-            {
-              t: "Paste your leads",
-              d: "Name, company, and a link or note about each — CSV or plain text, no formatting fuss.",
-            },
-            {
-              t: "Icebreak reads & writes",
-              d: "The model reads what you gave it about each lead and drafts an opener plus a full email in your voice.",
-            },
-            {
-              t: "Review & send",
-              d: "Copy into your inbox or export as CSV for your existing outreach tool.",
-            },
-          ].map((s, i) => (
-            <div key={i}>
-              <p className="font-mono text-thaw text-sm mb-2">
-                0{i + 1}
-              </p>
-              <h3 className="font-display font-semibold mb-2">{s.t}</h3>
-              <p className="text-sm text-glacier/70">{s.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section
-        id="pricing"
-        className="max-w-6xl mx-auto px-6 py-16 border-t border-glacier/10 scroll-mt-24"
-      >
-        <h2 className="font-display text-2xl font-semibold mb-10">
-          Simple pricing
-        </h2>
-        <div className="grid md:grid-cols-2 gap-8 max-w-2xl">
-          <div className="frosted rounded-2xl p-8">
-            <p className="font-mono text-xs text-mist uppercase mb-2">
-              Free
-            </p>
-            <p className="font-display text-3xl font-semibold mb-4">$0</p>
-            <p className="text-sm text-glacier/70 mb-6">
-              10 personalized emails per month. Enough to test on your next
-              batch of leads.
-            </p>
-            <Link
-              href="/login?mode=signup"
-              className="block text-center border border-glacier/20 rounded-full py-2.5 font-medium hover:border-thaw transition"
-            >
-              Start free
-            </Link>
-          </div>
-          <div className="rounded-2xl p-8 bg-glacier text-frost">
-            <p className="font-mono text-xs text-ice uppercase mb-2">Pro</p>
-            <p className="font-display text-3xl font-semibold mb-4">
-              $19<span className="text-base font-normal">/mo</span>
-            </p>
-            <p className="text-sm text-frost/70 mb-6">
-              500 personalized emails per month, CSV export, and priority
-              generation.
-            </p>
-            <a
-              href={process.env.NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL}
-              className="block text-center bg-thaw rounded-full py-2.5 font-medium hover:brightness-105 transition"
-            >
-              Upgrade to Pro
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <footer className="max-w-6xl mx-auto px-6 py-10 border-t border-glacier/10">
-        <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-mist">
-          <span>© {new Date().getFullYear()} Icebreak.</span>
-          <div className="flex items-center gap-5">
-            <Link href="/terms" className="hover:text-thaw transition-colors">
-              Terms of Service
-            </Link>
-            <Link href="/privacy" className="hover:text-thaw transition-colors">
-              Privacy Policy
-            </Link>
-          </div>
-        </div>
-      </footer>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }
