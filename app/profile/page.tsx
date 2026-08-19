@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import { supabaseClient } from "@/lib/supabaseClient";
 
-type Account = {
+// Temporarily hidden — email change UX needs polish before launch.
+// Set to true to re-enable the "Change" button below.
+const SHOW_EMAIL_CHANGE = false;
   exists: boolean;
   plan: string;
   creditsUsed: number;
@@ -38,6 +40,7 @@ export default function ProfilePage() {
   // --- Change password ---
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -155,8 +158,12 @@ export default function ProfilePage() {
   async function savePasswordChange() {
     setPasswordError("");
     setPasswordMessage("");
-    if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setPasswordError("Password must include at least one letter and one number");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -197,7 +204,7 @@ export default function ProfilePage() {
         <div className="frosted rounded-2xl p-6 mb-4">
           <p className="text-xs text-mist mb-2">Signed in as</p>
 
-          {editingEmail ? (
+          {SHOW_EMAIL_CHANGE && editingEmail ? (
             <div className="flex gap-2">
               <input
                 type="email"
@@ -228,17 +235,19 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between">
               <p className="font-mono text-lg">{userEmail}</p>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setEmailInput(userEmail);
-                    setEditingEmail(true);
-                    setEmailMessage("");
-                    setEmailError("");
-                  }}
-                  className="text-sm text-thaw underline"
-                >
-                  Change
-                </button>
+                {SHOW_EMAIL_CHANGE && (
+                  <button
+                    onClick={() => {
+                      setEmailInput(userEmail);
+                      setEditingEmail(true);
+                      setEmailMessage("");
+                      setEmailError("");
+                    }}
+                    className="text-sm text-thaw underline"
+                  >
+                    Change
+                  </button>
+                )}
                 <button
                   onClick={handleSignOut}
                   className="text-sm text-glacier/60 underline hover:text-red-500"
@@ -265,15 +274,28 @@ export default function ProfilePage() {
         <div className="frosted rounded-2xl p-6 mb-4">
           <p className="text-xs text-mist mb-2">Password</p>
           <div className="grid gap-3">
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 pr-16 bg-white/70"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((v) => !v)}
+                tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-mist hover:text-thaw"
+              >
+                {showNewPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            <p className="text-[11px] text-mist -mt-1">
+              At least 8 characters, with a letter and a number.
+            </p>
             <input
-              type="password"
-              placeholder="New password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
-            />
-            <input
-              type="password"
+              type={showNewPassword ? "text" : "password"}
               placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
