@@ -29,6 +29,7 @@ export default function ToolPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [userPlan, setUserPlan] = useState<"free" | "pro">("free");
 
   const [senderName, setSenderName] = useState("");
   const [senderEmailOption, setSenderEmailOption] = useState<"account" | "other">("account");
@@ -81,6 +82,12 @@ export default function ToolPage() {
     total: number;
     skipped: number;
   } | null>(null);
+  const [mailtoQueue, setMailtoQueue] = useState<number[]>([]);
+  const [mailtoPos, setMailtoPos] = useState(0);
+  const [mailtoActive, setMailtoActive] = useState(false);
+  const [mailtoCountdown, setMailtoCountdown] = useState(10);
+  const mailtoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const MAILTO_AUTO_ADVANCE_SECONDS = 10;
   const [gmailBatchError, setGmailBatchError] = useState("");
   const [editedIndices, setEditedIndices] = useState<Set<number>>(new Set());
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
@@ -152,7 +159,20 @@ export default function ToolPage() {
   useEffect(() => {
     if (!accessToken) return;
     fetchFollowups();
+    fetchPlan();
   }, [accessToken]);
+
+  async function fetchPlan() {
+    try {
+      const res = await fetch("/api/account", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.plan) setUserPlan(data.plan);
+    } catch {
+      // Non-critical — default to "free" gating if this fails
+    }
+  }
 
   function authHeaders() {
     return {
@@ -225,6 +245,62 @@ export default function ToolPage() {
     const body = encodeURIComponent(r.email);
     return `mailto:${r.lead.email || ""}?subject=${subject}&body=${body}`;
   }
+
+  // --- Sequential "Open in email" flow ---
+  // mailto: links only work one at a time (browsers block firing several
+  // at once), so instead of trying to open them all simultaneously, we
+  // step through the list one click at a time.
+
+  function startMailtoSequence() {
+    const indices =
+      selected.size > 0 ? Array.from(selected) : results.map((_, i) => i);
+    const queue = indices
+      .filter((i) => results[i]?.email.trim())
+      .sort((a, b) => a - b);
+    if (queue.length === 0) return;
+    setMailtoQueue(queue);
+    setMailtoPos(0);
+    setMailtoActive(true);
+    window.open(buildMailtoLink(results[queue[0]]), "_blank", "noopener,noreferrer");
+  }
+
+  function openNextInSequence() {
+    const nextPos = mailtoPos + 1;
+    if (nextPos >= mailtoQueue.length) {
+      setMailtoActive(false);
+      return;
+    }
+    setMailtoPos(nextPos);
+    window.open(buildMailtoLink(results[mailtoQueue[nextPos]]), "_blank", "noopener,noreferrer");
+  }
+
+  function stopMailtoSequence() {
+    if (mailtoTimerRef.current) clearInterval(mailtoTimerRef.current);
+    setMailtoActive(false);
+  }
+
+  // Auto-advance countdown — restarts every time we move to a new email.
+  // Note: some browsers restrict opening external protocol handlers
+  // (mailto:) without a direct user click, so this may not fire in every
+  // browser — the manual "Next email" button always works as a fallback.
+  useEffect(() => {
+    if (!mailtoActive) return;
+    setMailtoCountdown(MAILTO_AUTO_ADVANCE_SECONDS);
+    if (mailtoTimerRef.current) clearInterval(mailtoTimerRef.current);
+    mailtoTimerRef.current = setInterval(() => {
+      setMailtoCountdown((prev) => {
+        if (prev <= 1) {
+          openNextInSequence();
+          return MAILTO_AUTO_ADVANCE_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (mailtoTimerRef.current) clearInterval(mailtoTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mailtoActive, mailtoPos]);
 
   function downloadCsv() {
     if (results.length === 0) return;
@@ -408,6 +484,13 @@ export default function ToolPage() {
   }
 
   function handleConnectGmail() {
+    if (userPlan !== "pro") {
+      setError(
+        "Gmail auto-drafts are a Pro feature — free plan users can use \"Open in email\" instead."
+      );
+      setNeedsUpgrade(true);
+      return;
+    }
     window.location.href = `/api/auth/google?email=${encodeURIComponent(userEmail)}`;
   }
 
@@ -1039,7 +1122,9 @@ export default function ToolPage() {
             >
               {gmailStatus === "connected"
                 ? "Gmail connected ✓"
-                : "Connect Gmail"}
+                : userPlan === "pro"
+                ? "Connect Gmail"
+                : "Connect Gmail (Pro)"}
             </button>
             <span className="text-xs text-mist">
               {mode === "sameForAll"
@@ -1103,6 +1188,14 @@ export default function ToolPage() {
                   </button>
                 )}
                 <button
+                  onClick={startMailtoSequence}
+                  className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                >
+                  {selected.size > 0
+                    ? `Open ${selected.size} selected in email`
+                    : "Open all in email"}
+                </button>
+                <button
                   onClick={sendToGmail}
                   disabled={!!gmailProgress && gmailProgress.sent < gmailProgress.total}
                   className="text-sm font-medium px-4 py-2 rounded-full bg-glacier text-frost hover:brightness-110 transition disabled:opacity-50"
@@ -1119,6 +1212,36 @@ export default function ToolPage() {
                 </button>
               </div>
             </div>
+
+            {mailtoActive && (
+              <div className="flex items-center justify-between gap-3 text-sm bg-white/70 border border-glacier/10 rounded-xl px-4 py-2.5">
+                <span className="text-glacier/70">
+                  📧 Email {mailtoPos + 1} of {mailtoQueue.length} opened in
+                  your mail app — send it. Next opens automatically in{" "}
+                  <span className="font-mono text-thaw">{mailtoCountdown}s</span>.
+                </span>
+                <div className="flex gap-2 shrink-0">
+                  {mailtoPos + 1 < mailtoQueue.length ? (
+                    <button
+                      onClick={openNextInSequence}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+                    >
+                      Next now →
+                    </button>
+                  ) : (
+                    <span className="text-xs text-green-700 font-medium px-3 py-1.5">
+                      Last one ✓
+                    </span>
+                  )}
+                  <button
+                    onClick={stopMailtoSequence}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
 
             {gmailProgress && (
               <div className="text-sm text-glacier/70 bg-white/70 border border-glacier/10 rounded-xl px-4 py-2">
@@ -1183,6 +1306,8 @@ export default function ToolPage() {
                     </button>
                     <a
                       href={buildMailtoLink(r)}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
                     >
                       Open in email
