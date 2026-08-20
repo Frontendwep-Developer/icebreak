@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "@vercel/analytics": "^2.0.1",
     "googleapis": "^144.0.0",
     "next": "^14.2.35",
     "papaparse": "^5.4.1",
