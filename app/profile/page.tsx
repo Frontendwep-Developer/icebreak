@@ -425,6 +425,12 @@ export default function ProfilePage() {
                   </button>
                 )}
               </div>
+              {account.plan === "pro" && !account.gmailConnected && (
+                <p className="text-xs text-mist mt-3">
+                  Gmail auto-drafts are in limited beta — activation can
+                  take a few hours after you connect.
+                </p>
+              )}
             </div>
 
             {/* Follow-up settings */}

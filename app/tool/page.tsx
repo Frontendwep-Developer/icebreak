@@ -1152,6 +1152,12 @@ export default function ToolPage() {
                 : "Uses 1 credit per lead"}
             </span>
           </div>
+          {userPlan === "pro" && gmailStatus !== "connected" && (
+            <p className="text-xs text-mist mt-2">
+              Gmail auto-drafts are in limited beta — activation can take a
+              few hours.
+            </p>
+          )}
         </div>
 
         {results.length > 0 && (

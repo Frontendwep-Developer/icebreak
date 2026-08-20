@@ -116,15 +116,24 @@ export default function Home() {
           Simple pricing
         </h2>
         <div className="grid md:grid-cols-2 gap-8 max-w-2xl">
-          <div className="frosted rounded-2xl p-8">
+          <div className="frosted rounded-2xl p-8 flex flex-col h-full">
             <p className="font-mono text-xs text-mist uppercase mb-2">
               Free
             </p>
             <p className="font-display text-3xl font-semibold mb-4">$0</p>
-            <p className="text-sm text-glacier/70 mb-6">
-              10 personalized emails per month. Enough to test on your next
-              batch of leads.
-            </p>
+            <ul className="space-y-2.5 mb-6 flex-1">
+              {[
+                "10 AI-personalized emails / month",
+                "Unlimited \"own template\" sends (200/mo)",
+                "Copy & \"Open in email\" — unlimited",
+                "CSV upload & export",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-glacier/80">
+                  <span className="text-thaw mt-0.5">✓</span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
             <Link
               href="/login?mode=signup"
               className="block text-center border border-glacier/20 rounded-full py-2.5 font-medium hover:border-thaw transition"
@@ -132,14 +141,28 @@ export default function Home() {
               Start free
             </Link>
           </div>
-          <div className="rounded-2xl p-8 bg-glacier text-frost">
+          <div className="rounded-2xl p-8 bg-glacier text-frost flex flex-col h-full">
             <p className="font-mono text-xs text-ice uppercase mb-2">Pro</p>
             <p className="font-display text-3xl font-semibold mb-4">
               $19<span className="text-base font-normal">/mo</span>
             </p>
-            <p className="text-sm text-frost/70 mb-6">
-              500 personalized emails per month, CSV export, and priority
-              generation.
+            <ul className="space-y-2.5 mb-6 flex-1">
+              {[
+                "500 AI-personalized emails / month",
+                "Everything in Free",
+                "Automatic Gmail drafts (limited beta)",
+                "Full generation history & search",
+                "Automated follow-up reminders",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-frost/90">
+                  <span className="text-ice mt-0.5">✓</span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-ice/80 mb-6 -mt-2">
+              Gmail auto-drafts are in limited beta — activation can take a
+              few hours after upgrading.
             </p>
             <a
               href={process.env.NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL}
