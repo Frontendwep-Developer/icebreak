@@ -172,11 +172,11 @@ export default function PrivacyPage() {
               Questions about this Privacy Policy or your data can be sent
               to{" "}
               <a
-                href="mailto:support@icebreak-livid.vercel.app"
-                className="text-thaw underline"
-              >
-                [your support email]
-              </a>
+                href="mailto:icebreak.support@gmail.com"
+  className="text-thaw underline"
+>
+  icebreak.support@gmail.com
+</a>
               .
             </p>
           </section>
