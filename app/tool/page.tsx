@@ -125,6 +125,18 @@ export default function ToolPage() {
     if (params.get("gmail_connected")) setGmailStatus("connected");
     if (params.get("gmail_error")) setGmailStatus("error");
 
+    // If we arrived here from History's "Use as template", pick it up.
+    try {
+      const seed = sessionStorage.getItem("icebreak_seed_template");
+      if (seed) {
+        setOwnTemplateText(seed);
+        setMode("ownTemplate");
+        sessionStorage.removeItem("icebreak_seed_template");
+      }
+    } catch {
+      // ignore
+    }
+
     // Restore saved template preferences (sender name, product description, tone, language)
     // Note: email is no longer stored here — it comes from the authenticated session.
     try {

@@ -43,3 +43,29 @@ export async function GET(req: NextRequest) {
     hasMore: (count || 0) > offset + PAGE_SIZE,
   });
 }
+
+// DELETE /api/history — remove a single history item
+export async function DELETE(req: NextRequest) {
+  const email = await getVerifiedEmail(req);
+  if (!email) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  // .eq("user_email", email) ensures a user can only delete their own rows
+  const { error } = await supabaseAdmin
+    .from("generation_history")
+    .delete()
+    .eq("id", id)
+    .eq("user_email", email);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}

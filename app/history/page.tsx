@@ -87,6 +87,41 @@ export default function HistoryPage() {
     return `mailto:${item.lead_email || ""}?subject=${subject}&body=${body}`;
   }
 
+  async function deleteItem(id: number) {
+    if (!confirm("Delete this from your history? This can't be undone.")) return;
+    try {
+      const res = await fetch(`/api/history?id=${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (res.ok) {
+        setItems((prev) => prev.filter((i) => i.id !== id));
+        setTotal((prev) => prev - 1);
+      }
+    } catch {
+      // Non-critical — user can retry
+    }
+  }
+
+  function useAsTemplate(item: HistoryItem) {
+    // Replace this lead's specific name/company with {name}/{company}
+    // placeholders so it can be reused as a template for other leads.
+    let templated = item.email_body;
+    if (item.lead_name) {
+      templated = templated.split(item.lead_name).join("{name}");
+    }
+    if (item.lead_company) {
+      templated = templated.split(item.lead_company).join("{company}");
+    }
+    try {
+      sessionStorage.setItem("icebreak_seed_template", templated);
+    } catch {
+      // sessionStorage may be unavailable — proceed anyway, tool page
+      // will just show the normal empty template field
+    }
+    router.push("/tool");
+  }
+
   function handleUpgrade() {
     const baseUrl = process.env.NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL;
     window.location.href = baseUrl as string;
@@ -187,6 +222,20 @@ export default function HistoryPage() {
                       >
                         Open in email
                       </a>
+                      {item.mode !== "personalized" && (
+                        <button
+                          onClick={() => useAsTemplate(item)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                        >
+                          Use as template
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteItem(item.id)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-red-300 hover:text-red-500 transition-colors"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                   <p className="text-sm whitespace-pre-wrap text-glacier/90">

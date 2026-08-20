@@ -8,11 +8,22 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
   const router = useRouter();
   const pathname = usePathname();
   const [email, setEmail] = useState("");
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | null>(null);
 
   useEffect(() => {
     if (variant !== "app") return;
     supabaseClient.auth.getSession().then(({ data }) => {
       if (data.session?.user.email) setEmail(data.session.user.email);
+      if (data.session?.access_token) {
+        fetch("/api/account", {
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        })
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.plan) setUserPlan(d.plan);
+          })
+          .catch(() => {});
+      }
     });
   }, [variant]);
 
@@ -97,12 +108,18 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
         <a href="/profile" className={linkClass("/profile")}>
           Profile
         </a>
-        <button
-          onClick={handleUpgrade}
-          className="text-sm font-medium px-4 py-2 rounded-full border border-thaw text-thaw hover:bg-thaw hover:text-white transition-colors"
-        >
-          Upgrade to Pro
-        </button>
+        {userPlan === "pro" ? (
+          <span className="text-xs font-medium px-4 py-2 rounded-full bg-glacier/10 text-glacier/60">
+            Pro ✓
+          </span>
+        ) : (
+          <button
+            onClick={handleUpgrade}
+            className="text-sm font-medium px-4 py-2 rounded-full border border-thaw text-thaw hover:bg-thaw hover:text-white transition-colors"
+          >
+            Upgrade to Pro
+          </button>
+        )}
         <button
           onClick={handleSignOut}
           className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 text-glacier/60 hover:border-red-300 hover:text-red-500 transition-colors"
