@@ -178,6 +178,9 @@ export default function Home() {
         <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-mist">
           <span>© {new Date().getFullYear()} Icebreak.</span>
           <div className="flex items-center gap-5">
+            <Link href="/support" className="hover:text-thaw transition-colors">
+              Support
+            </Link>
             <Link href="/terms" className="hover:text-thaw transition-colors">
               Terms of Service
             </Link>

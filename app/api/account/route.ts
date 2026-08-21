@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getVerifiedEmail } from "@/lib/auth";
+import { getVerifiedEmail, getVerifiedUser } from "@/lib/auth";
 
 const FREE_MONTHLY_LIMIT = 10;
 const PRO_MONTHLY_LIMIT = 500;
@@ -71,6 +71,33 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// DELETE /api/account — permanently delete the current user's account and data
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getVerifiedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // Delete data tied to this email across our own tables. Best-effort —
+    // we still proceed to delete the Auth user even if one of these fails,
+    // rather than leaving the account stuck.
+    await supabaseAdmin.from("generation_history").delete().eq("user_email", user.email);
+    await supabaseAdmin.from("sent_emails").delete().eq("user_email", user.email);
+    await supabaseAdmin.from("users").delete().eq("email", user.email);
+
+    // Finally, delete the Supabase Auth user itself.
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+    if (authDeleteError) {
+      return NextResponse.json({ error: authDeleteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

@@ -9,9 +9,19 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
   const pathname = usePathname();
   const [email, setEmail] = useState("");
   const [userPlan, setUserPlan] = useState<"free" | "pro" | null>(null);
+  const [checkingSession, setCheckingSession] = useState(variant === "landing");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    if (variant !== "app") return;
+    if (variant === "landing") {
+      // Only affects which buttons we show below — never redirects anyone.
+      supabaseClient.auth.getSession().then(({ data }) => {
+        setIsLoggedIn(!!data.session);
+        setCheckingSession(false);
+      });
+      return;
+    }
+
     supabaseClient.auth.getSession().then(({ data }) => {
       if (data.session?.user.email) setEmail(data.session.user.email);
       if (data.session?.access_token) {
@@ -65,18 +75,29 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
             Pricing
           </a>
           <div className="flex items-center gap-4 pl-4 border-l border-glacier/10">
-            <a
-              href="/login"
-              className="text-sm text-glacier/70 hover:text-thaw transition-colors"
-            >
-              Log in
-            </a>
-            <a
-              href="/login?mode=signup"
-              className="bg-thaw text-white text-sm font-medium px-6 py-2.5 rounded-full whitespace-nowrap hover:brightness-105 transition"
-            >
-              Get started →
-            </a>
+            {checkingSession ? null : isLoggedIn ? (
+              <a
+                href="/tool"
+                className="bg-thaw text-white text-sm font-medium px-6 py-2.5 rounded-full whitespace-nowrap hover:brightness-105 transition"
+              >
+                Go to app →
+              </a>
+            ) : (
+              <>
+                <a
+                  href="/login"
+                  className="text-sm text-glacier/70 hover:text-thaw transition-colors"
+                >
+                  Log in
+                </a>
+                <a
+                  href="/login?mode=signup"
+                  className="bg-thaw text-white text-sm font-medium px-6 py-2.5 rounded-full whitespace-nowrap hover:brightness-105 transition"
+                >
+                  Get started →
+                </a>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -99,6 +120,9 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
         ice<span className="text-thaw">break</span>
       </a>
       <div className="flex items-center gap-3">
+        <a href="/" className={linkClass("/")}>
+          Landing page
+        </a>
         <a href="/tool" className={linkClass("/tool")}>
           Generate
         </a>

@@ -22,6 +22,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,6 +44,10 @@ function LoginContent() {
       const issue = passwordIssue(password);
       if (issue) {
         setError(issue);
+        return;
+      }
+      if (!agreedToTerms) {
+        setError("Please agree to the Terms of Service and Privacy Policy");
         return;
       }
     } else if (!password) {
@@ -237,6 +242,34 @@ function LoginContent() {
                       onKeyDown={(e) => e.key === "Enter" && handleContinue()}
                       className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
                     />
+                    <label className="flex items-start gap-2 text-xs text-glacier/70 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={agreedToTerms}
+                        onChange={(e) => setAgreedToTerms(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        I agree to the{" "}
+                        <a
+                          href="/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-thaw underline"
+                        >
+                          Terms of Service
+                        </a>{" "}
+                        and{" "}
+                        <a
+                          href="/privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-thaw underline"
+                        >
+                          Privacy Policy
+                        </a>
+                      </span>
+                    </label>
                   </>
                 )}
 

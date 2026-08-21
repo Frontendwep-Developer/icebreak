@@ -31,6 +31,9 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [followupDays, setFollowupDays] = useState(3);
   const [savedMessage, setSavedMessage] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   // --- Change email ---
   const [editingEmail, setEditingEmail] = useState(false);
@@ -86,6 +89,27 @@ export default function ProfilePage() {
   async function handleSignOut() {
     await supabaseClient.auth.signOut();
     router.push("/login");
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText.toLowerCase() !== "delete") return;
+
+    setDeletingAccount(true);
+    try {
+      const res = await fetch("/api/account", {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        await supabaseClient.auth.signOut();
+        router.push("/");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Could not delete account. Please try again.");
+      }
+    } finally {
+      setDeletingAccount(false);
+    }
   }
 
   async function fetchAccount() {
@@ -396,6 +420,16 @@ export default function ProfilePage() {
                   Upgrade to Pro — $19/mo
                 </button>
               )}
+              {account.plan === "pro" && (
+                <a
+                  href={`https://${process.env.NEXT_PUBLIC_LEMONSQUEEZY_STORE_SUBDOMAIN}.lemonsqueezy.com/billing`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 block text-center w-full border border-glacier/15 font-medium py-2.5 rounded-full hover:border-thaw hover:text-thaw transition-colors"
+                >
+                  Manage subscription
+                </a>
+              )}
             </div>
 
             {/* Gmail connection */}
@@ -462,7 +496,82 @@ export default function ProfilePage() {
             </div>
           </>
         ) : null}
+
+        <p className="text-center text-xs text-mist mb-4">
+          Need help?{" "}
+          <a href="/support" className="text-thaw underline">
+            Contact support
+          </a>
+        </p>
+
+        {/* Danger zone */}
+        <div className="rounded-2xl p-6 mt-4 border border-red-200 bg-red-50/50">
+          <p className="text-sm font-medium text-red-700 mb-1">Danger zone</p>
+          <p className="text-xs text-red-600/80 mb-3">
+            Permanently delete your account, plan, credits, history, and
+            Gmail connection. This cannot be undone.
+          </p>
+          <button
+            onClick={() => {
+              setDeleteConfirmText("");
+              setShowDeleteModal(true);
+            }}
+            className="text-sm font-medium px-4 py-2 rounded-full border border-red-300 text-red-600 hover:bg-red-100 transition-colors"
+          >
+            Delete my account
+          </button>
+        </div>
       </section>
+
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-6"
+          onClick={() => !deletingAccount && setShowDeleteModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-lg font-semibold text-red-700 mb-2">
+              Delete your account?
+            </p>
+            <p className="text-sm text-glacier/70 mb-4">
+              This permanently removes your plan, credits, generation
+              history, and Gmail connection. This cannot be undone.
+            </p>
+            <p className="text-xs text-glacier/70 mb-1">
+              Type <span className="font-mono font-semibold">delete</span>{" "}
+              below to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="delete"
+              autoFocus
+              className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 mb-4 font-mono text-sm"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deletingAccount}
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={
+                  deletingAccount || deleteConfirmText.toLowerCase() !== "delete"
+                }
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-40 disabled:hover:bg-red-600"
+              >
+                {deletingAccount ? "Deleting..." : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
