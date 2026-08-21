@@ -120,9 +120,6 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
         ice<span className="text-thaw">break</span>
       </a>
       <div className="flex items-center gap-3">
-        <a href="/" className={linkClass("/")}>
-          Landing page
-        </a>
         <a href="/tool" className={linkClass("/tool")}>
           Generate
         </a>
@@ -144,12 +141,14 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
             Upgrade to Pro
           </button>
         )}
-        <button
-          onClick={handleSignOut}
-          className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 text-glacier/60 hover:border-red-300 hover:text-red-500 transition-colors"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-2 pl-3 border-l border-glacier/10">
+          <button
+            onClick={handleSignOut}
+            className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 text-glacier/60 hover:border-red-300 hover:text-red-500 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </nav>
   );
