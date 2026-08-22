@@ -15,7 +15,13 @@ export default function SupportPage() {
     const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
       finalSubject
     )}&body=${encodeURIComponent(message)}`;
-    window.open(mailto, "_blank", "noopener,noreferrer");
+    // See tool_page.tsx openMailto() for why we go through our own
+    // redirect page instead of opening mailto: directly in a new tab.
+    window.open(
+      `/mailto-redirect?to=${encodeURIComponent(mailto)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   function copyEmail() {

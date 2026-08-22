@@ -214,14 +214,18 @@ export default function HistoryPage() {
                       >
                         {copiedId === item.id ? "Copied ✓" : "Copy"}
                       </button>
-                      <a
-                        href={buildMailtoLink(item)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() =>
+                          window.open(
+                            `/mailto-redirect?to=${encodeURIComponent(buildMailtoLink(item))}`,
+                            "_blank",
+                            "noopener,noreferrer"
+                          )
+                        }
                         className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
                       >
                         Open in email
-                      </a>
+                      </button>
                       {item.mode !== "personalized" && (
                         <button
                           onClick={() => useAsTemplate(item)}

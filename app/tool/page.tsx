@@ -264,6 +264,21 @@ export default function ToolPage() {
   // at once), so instead of trying to open them all simultaneously, we
   // step through the list one click at a time.
 
+  function openMailto(link: string) {
+    // Chrome doesn't reliably hand off mailto: links to a registered
+    // handler (e.g. Gmail) when opened directly in a NEW tab — it works
+    // in Firefox, but leaves a blank tab in Chrome. Opening our own
+    // redirect page in the new tab (a normal https:// URL, which Chrome
+    // opens fine) and letting THAT page navigate to the mailto: link
+    // itself (same-tab from its own point of view) works reliably in
+    // both, while keeping the original results page untouched.
+    window.open(
+      `/mailto-redirect?to=${encodeURIComponent(link)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
   function startMailtoSequence() {
     const indices =
       selected.size > 0 ? Array.from(selected) : results.map((_, i) => i);
@@ -274,7 +289,7 @@ export default function ToolPage() {
     setMailtoQueue(queue);
     setMailtoPos(0);
     setMailtoActive(true);
-    window.open(buildMailtoLink(results[queue[0]]), "_blank", "noopener,noreferrer");
+    openMailto(buildMailtoLink(results[queue[0]]));
   }
 
   function openNextInSequence() {
@@ -284,7 +299,7 @@ export default function ToolPage() {
       return;
     }
     setMailtoPos(nextPos);
-    window.open(buildMailtoLink(results[mailtoQueue[nextPos]]), "_blank", "noopener,noreferrer");
+    openMailto(buildMailtoLink(results[mailtoQueue[nextPos]]));
   }
 
   function stopMailtoSequence() {
@@ -1343,14 +1358,12 @@ export default function ToolPage() {
                     >
                       {copiedIndex === i ? "Copied ✓" : "Copy"}
                     </button>
-                    <a
-                      href={buildMailtoLink(r)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => openMailto(buildMailtoLink(r))}
                       className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
                     >
                       Open in email
-                    </a>
+                    </button>
                     <button
                       onClick={() => startEdit(i)}
                       className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
