@@ -1174,7 +1174,7 @@ export default function ToolPage() {
 
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={handleGenerate}
+              onClick={() => handleGenerate()}
               disabled={loading}
               className="bg-thaw text-white font-medium px-6 py-3 rounded-full hover:brightness-105 transition disabled:opacity-50"
             >
