@@ -32,6 +32,7 @@ export default function ProfilePage() {
   const [followupDays, setFollowupDays] = useState(3);
   const [savedMessage, setSavedMessage] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
@@ -414,7 +415,7 @@ export default function ProfilePage() {
 
               {account.plan !== "pro" && (
                 <button
-                  onClick={handleUpgrade}
+                  onClick={() => setShowProModal(true)}
                   className="mt-4 w-full bg-thaw text-white font-medium py-2.5 rounded-full hover:brightness-105 transition"
                 >
                   Upgrade to Pro — $19/mo
@@ -522,6 +523,50 @@ export default function ProfilePage() {
           </button>
         </div>
       </section>
+
+      {showProModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-6"
+          onClick={() => setShowProModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-lg font-semibold mb-1">
+              Pro plan — $19/mo
+            </p>
+            <ul className="space-y-2 my-4">
+              {[
+                "500 AI-personalized emails / month",
+                "Everything in Free",
+                "Automatic Gmail drafts (limited beta)",
+                "Full generation history & search",
+                "Automated follow-up reminders",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-glacier/80">
+                  <span className="text-thaw mt-0.5">✓</span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowProModal(false)}
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15"
+              >
+                Maybe later
+              </button>
+              <button
+                onClick={handleUpgrade}
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeleteModal && (
         <div

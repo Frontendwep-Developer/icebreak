@@ -8,6 +8,7 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
   const router = useRouter();
   const pathname = usePathname();
   const [email, setEmail] = useState("");
+  const [showProModal, setShowProModal] = useState(false);
   const [userPlan, setUserPlan] = useState<"free" | "pro" | null>(null);
   const [checkingSession, setCheckingSession] = useState(variant === "landing");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -135,7 +136,7 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
           </span>
         ) : (
           <button
-            onClick={handleUpgrade}
+            onClick={() => setShowProModal(true)}
             className="text-sm font-medium px-4 py-2 rounded-full border border-thaw text-thaw hover:bg-thaw hover:text-white transition-colors"
           >
             Upgrade to Pro
@@ -150,6 +151,50 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
           </button>
         </div>
       </div>
+
+      {showProModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-6"
+          onClick={() => setShowProModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-lg font-semibold mb-1">
+              Pro plan — $19/mo
+            </p>
+            <ul className="space-y-2 my-4">
+              {[
+                "500 AI-personalized emails / month",
+                "Everything in Free",
+                "Automatic Gmail drafts (limited beta)",
+                "Full generation history & search",
+                "Automated follow-up reminders",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-glacier/80">
+                  <span className="text-thaw mt-0.5">✓</span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowProModal(false)}
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15"
+              >
+                Maybe later
+              </button>
+              <button
+                onClick={handleUpgrade}
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

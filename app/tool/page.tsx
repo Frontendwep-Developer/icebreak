@@ -85,6 +85,7 @@ export default function ToolPage() {
   const [mailtoQueue, setMailtoQueue] = useState<number[]>([]);
   const [mailtoPos, setMailtoPos] = useState(0);
   const [mailtoActive, setMailtoActive] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
   const [mailtoCountdown, setMailtoCountdown] = useState(10);
   const mailtoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const MAILTO_AUTO_ADVANCE_SECONDS = 10;
@@ -775,40 +776,42 @@ export default function ToolPage() {
         )}
 
         {followups.length > 0 && (
-          <div className="mb-4 border border-thaw/30 bg-thaw/5 rounded-2xl p-4 space-y-3">
-            <p className="text-sm font-medium text-glacier">
+          <div className="mb-4 border border-thaw/30 bg-thaw/5 rounded-2xl p-4">
+            <p className="text-sm font-medium text-glacier mb-3">
               ⏰ {followups.length} follow-up
               {followups.length > 1 ? "s" : ""} due
             </p>
-            {followups.map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-2.5 flex-wrap"
-              >
-                <span className="text-sm text-glacier/80">
-                  {f.lead_name} · {f.lead_company} — sent{" "}
-                  {new Date(f.drafted_at).toLocaleDateString()}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => confirmFollowup(f.id)}
-                    disabled={followupBusyId === f.id}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition disabled:opacity-50"
-                  >
-                    {followupBusyId === f.id
-                      ? "Creating..."
-                      : "Draft follow-up"}
-                  </button>
-                  <button
-                    onClick={() => dismissFollowup(f.id)}
-                    disabled={followupBusyId === f.id}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw transition disabled:opacity-50"
-                  >
-                    Dismiss
-                  </button>
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              {followups.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-2.5 flex-wrap"
+                >
+                  <span className="text-sm text-glacier/80">
+                    {f.lead_name} · {f.lead_company} — sent{" "}
+                    {new Date(f.drafted_at).toLocaleDateString()}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => confirmFollowup(f.id)}
+                      disabled={followupBusyId === f.id}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition disabled:opacity-50"
+                    >
+                      {followupBusyId === f.id
+                        ? "Creating..."
+                        : "Draft follow-up"}
+                    </button>
+                    <button
+                      onClick={() => dismissFollowup(f.id)}
+                      disabled={followupBusyId === f.id}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw transition disabled:opacity-50"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -1117,7 +1120,7 @@ export default function ToolPage() {
               {error}
               {needsUpgrade && (
                 <button
-                  onClick={handleUpgrade}
+                  onClick={() => setShowProModal(true)}
                   className="ml-3 underline font-medium"
                 >
                   Upgrade to Pro →
@@ -1156,6 +1159,12 @@ export default function ToolPage() {
             <p className="text-xs text-mist mt-2">
               Gmail auto-drafts are in limited beta — activation can take a
               few hours.
+            </p>
+          )}
+          {userPlan === "pro" && gmailStatus === "connected" && (
+            <p className="text-xs text-mist mt-2">
+              📝 Icebreak saves these as Gmail drafts — nothing is sent
+              automatically, you review and hit send yourself.
             </p>
           )}
         </div>
@@ -1487,6 +1496,59 @@ export default function ToolPage() {
           )}
         </>
       )}
+
+      {showProModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-6"
+          onClick={() => setShowProModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-lg font-semibold mb-1">
+              Pro plan — $19/mo
+            </p>
+            <ul className="space-y-2 my-4">
+              {[
+                "500 AI-personalized emails / month",
+                "Everything in Free",
+                "Automatic Gmail drafts (limited beta)",
+                "Full generation history & search",
+                "Automated follow-up reminders",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-glacier/80">
+                  <span className="text-thaw mt-0.5">✓</span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowProModal(false)}
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15"
+              >
+                Maybe later
+              </button>
+              <button
+                onClick={handleUpgrade}
+                className="flex-1 text-sm font-medium px-4 py-2.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <a
+        href="/support"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 left-6 z-30 bg-white border border-glacier/15 text-glacier/70 text-xs font-medium px-4 py-2.5 rounded-full shadow-lg hover:border-thaw hover:text-thaw transition-colors"
+      >
+        💬 Feedback
+      </a>
     </main>
   );
 }
