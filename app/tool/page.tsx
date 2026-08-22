@@ -430,9 +430,16 @@ export default function ToolPage() {
     }));
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(resultMode: "append" | "replace" = "append") {
     setError("");
     setNeedsUpgrade(false);
+
+    if (resultMode === "append" && results.length >= 100) {
+      setError(
+        "You have 100+ results on screen — download the CSV or clear some before generating more, so things stay easy to manage."
+      );
+      return;
+    }
 
     if (leadInputMode === "paste" && !leadsRaw) {
       setError("Please fill in your lead list");
@@ -478,9 +485,15 @@ export default function ToolPage() {
         setNeedsUpgrade(!!data.upgrade);
         return;
       }
-      setResults(data.results);
+      if (resultMode === "replace") {
+        setResults(data.results);
+        setEditedIndices(new Set());
+      } else {
+        setResults((prev) => [...prev, ...data.results]);
+        // Don't reset editedIndices when appending — existing items keep
+        // their indices, so their "Edited" status is still accurate.
+      }
       setSelected(new Set());
-      setEditedIndices(new Set());
       setHighlightIndex(null);
       if (mode === "ownTemplate") {
         setUsage(null);
@@ -1233,7 +1246,7 @@ export default function ToolPage() {
                   </button>
                   {mode === "sameForAll" && (
                     <button
-                      onClick={handleGenerate}
+                      onClick={() => handleGenerate("replace")}
                       disabled={loading}
                       className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors disabled:opacity-50"
                     >
