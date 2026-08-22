@@ -29,7 +29,7 @@ export default function ToolPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [userPlan, setUserPlan] = useState<"free" | "pro">("free");
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | null>(null);
 
   const [senderName, setSenderName] = useState("");
   const [senderEmailOption, setSenderEmailOption] = useState<"account" | "other">("account");
@@ -171,6 +171,14 @@ export default function ToolPage() {
   // Fetch due follow-up reminders once we know the user's session
   useEffect(() => {
     if (!accessToken) return;
+    // Show the cached plan instantly (avoids a wrong "free" flash while
+    // the real check is still in flight) — same cache Navbar writes to.
+    try {
+      const cached = sessionStorage.getItem("icebreak_plan_cache");
+      if (cached === "free" || cached === "pro") setUserPlan(cached);
+    } catch {
+      // ignore
+    }
     fetchFollowups();
     fetchPlan();
   }, [accessToken]);
@@ -181,9 +189,16 @@ export default function ToolPage() {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = await res.json();
-      if (res.ok && data.plan) setUserPlan(data.plan);
+      if (res.ok && data.plan) {
+        setUserPlan(data.plan);
+        try {
+          sessionStorage.setItem("icebreak_plan_cache", data.plan);
+        } catch {
+          // ignore
+        }
+      }
     } catch {
-      // Non-critical — default to "free" gating if this fails
+      // Non-critical — userPlan stays null (shown as "Checking...")
     }
   }
 
@@ -1167,9 +1182,12 @@ export default function ToolPage() {
             </button>
             <button
               onClick={handleConnectGmail}
-              className="text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+              disabled={userPlan === null}
+              className="text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors disabled:opacity-50"
             >
-              {gmailStatus === "connected"
+              {userPlan === null
+                ? "Checking..."
+                : gmailStatus === "connected"
                 ? "Gmail connected ✓"
                 : userPlan === "pro"
                 ? "Connect Gmail"
@@ -1352,6 +1370,7 @@ export default function ToolPage() {
                     />
                     <div>
                       <p className="font-mono text-xs text-thaw flex items-center gap-2">
+                        <span className="text-mist">#{i + 1}</span>
                         {r.lead.name} · {r.lead.company}
                         {isEmpty && (
                           <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded-full bg-glacier/10 text-mist">

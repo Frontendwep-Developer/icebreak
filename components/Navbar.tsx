@@ -152,7 +152,11 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
         <a href="/profile" className={linkClass("/profile")}>
           Profile
         </a>
-        {userPlan === "pro" ? (
+        {userPlan === null ? (
+          <span className="text-xs font-medium px-4 py-2 rounded-full text-glacier/40">
+            Checking...
+          </span>
+        ) : userPlan === "pro" ? (
           <span className="text-xs font-medium px-4 py-2 rounded-full bg-glacier/10 text-glacier/60">
             Pro ✓
           </span>

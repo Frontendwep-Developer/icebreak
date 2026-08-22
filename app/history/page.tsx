@@ -396,7 +396,7 @@ export default function HistoryPage() {
               <p className="text-sm text-glacier/60">No results match your filters.</p>
             ) : (
               <div className="space-y-4">
-                {items.map((item) => (
+                {items.map((item, index) => (
                   <div
                     key={item.id}
                     className={`rounded-2xl p-5 border bg-white transition-shadow ${
@@ -413,6 +413,7 @@ export default function HistoryPage() {
                         />
                         <div>
                           <p className="font-mono text-xs text-thaw flex items-center gap-2">
+                            <span className="text-mist">#{index + 1}</span>
                             {item.lead_name || "Unnamed"} · {item.lead_company || "—"}
                             <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded-full bg-glacier/10 text-mist">
                               {MODE_LABELS[item.mode] || item.mode}
