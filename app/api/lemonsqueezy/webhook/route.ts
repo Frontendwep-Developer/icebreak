@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sendNotificationEmail } from "@/lib/notify";
 
 function verifySignature(rawBody: string, signature: string | null) {
   if (!signature) return false;
@@ -46,13 +47,33 @@ export async function POST(req: NextRequest) {
       "subscription_unpaused",
     ].includes(eventName)
   ) {
+    const isNowPro = PRO_STATUSES.includes(status);
+
+    // Check the current plan BEFORE we update, so we only notify once —
+    // the moment someone actually becomes Pro, not on every later webhook
+    // (renewals, etc. fire this same event repeatedly).
+    const { data: existing } = await supabaseAdmin
+      .from("users")
+      .select("plan")
+      .eq("email", email)
+      .maybeSingle();
+
+    const wasAlreadyPro = existing?.plan === "pro";
+
     await supabaseAdmin.from("users").upsert(
       {
         email,
-        plan: PRO_STATUSES.includes(status) ? "pro" : "free",
+        plan: isNowPro ? "pro" : "free",
       },
       { onConflict: "email" }
     );
+
+    if (isNowPro && !wasAlreadyPro) {
+      await sendNotificationEmail(
+        "🎉 New Pro subscriber on Icebreak",
+        `${email} just became a Pro subscriber.\n\nDon't forget to add them as a Google OAuth Test User if they want Gmail auto-drafts:\nhttps://console.cloud.google.com/auth/audience`
+      );
+    }
   }
 
   if (
