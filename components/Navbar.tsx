@@ -23,6 +23,16 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
       return;
     }
 
+    // Show the cached plan instantly (no flash of "Upgrade to Pro" while
+    // we re-check) — then refresh it in the background so it stays
+    // accurate if the plan changed elsewhere.
+    try {
+      const cached = sessionStorage.getItem("icebreak_plan_cache");
+      if (cached === "free" || cached === "pro") setUserPlan(cached);
+    } catch {
+      // ignore
+    }
+
     supabaseClient.auth.getSession().then(({ data }) => {
       if (data.session?.user.email) setEmail(data.session.user.email);
       if (data.session?.access_token) {
@@ -31,7 +41,14 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
         })
           .then((r) => r.json())
           .then((d) => {
-            if (d.plan) setUserPlan(d.plan);
+            if (d.plan) {
+              setUserPlan(d.plan);
+              try {
+                sessionStorage.setItem("icebreak_plan_cache", d.plan);
+              } catch {
+                // ignore
+              }
+            }
           })
           .catch(() => {});
       }
@@ -49,6 +66,11 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
   }
 
   async function handleSignOut() {
+    try {
+      sessionStorage.removeItem("icebreak_plan_cache");
+    } catch {
+      // ignore
+    }
     await supabaseClient.auth.signOut();
     router.push("/login");
   }
