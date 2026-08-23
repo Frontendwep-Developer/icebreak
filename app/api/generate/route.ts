@@ -47,7 +47,11 @@ async function callGroq(prompt: string, temperature = 0.9) {
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content || "{}";
   console.log("Groq raw response:", JSON.stringify(data).slice(0, 500));
-  const cleaned = text.replace(/```json|```/g, "").trim();
+  // Defense in depth: strip any <think>...</think> block the model might
+  // still emit, even with reasoning_effort:"none", so it can never leak
+  // into a real generated email.
+  const withoutThinking = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  const cleaned = withoutThinking.replace(/```json|```/g, "").trim();
 
   let parsed;
   try {

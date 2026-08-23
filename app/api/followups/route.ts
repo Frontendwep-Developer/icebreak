@@ -91,20 +91,33 @@ Return ONLY valid JSON, no markdown, in this exact shape:
         model: "qwen/qwen3.6-27b",
         max_tokens: 200,
         temperature: 0.9,
-
+        reasoning_effort: "none",
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
     const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content || "{}";
-    const cleaned = text.replace(/```json|```/g, "").trim();
+    const rawText = data?.choices?.[0]?.message?.content || "{}";
+    // Defense in depth: even with reasoning_effort:"none", strip any
+    // <think>...</think> block the model might still emit, so it can
+    // never leak into a real draft again.
+    const withoutThinking = rawText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    const cleaned = withoutThinking.replace(/```json|```/g, "").trim();
 
     let parsed;
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      parsed = { email: cleaned };
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          parsed = JSON.parse(match[0]);
+        } catch {
+          parsed = { email: cleaned };
+        }
+      } else {
+        parsed = { email: cleaned };
+      }
     }
 
     const followupText =
