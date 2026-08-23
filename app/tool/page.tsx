@@ -57,6 +57,20 @@ export default function ToolPage() {
   const [error, setError] = useState("");
   const [needsUpgrade, setNeedsUpgrade] = useState(false);
   const [results, setResults] = useState<ResultItem[]>([]);
+
+  // Persist results as they change, so a full page reload (e.g. clicking
+  // a Navbar link) doesn't lose work that hasn't been copied/downloaded.
+  useEffect(() => {
+    try {
+      if (results.length > 0) {
+        sessionStorage.setItem("icebreak_results_cache", JSON.stringify(results));
+      } else {
+        sessionStorage.removeItem("icebreak_results_cache");
+      }
+    } catch {
+      // ignore — storage may be full or unavailable, non-critical
+    }
+  }, [results]);
   const [usage, setUsage] = useState<{ used: number; limit: number } | null>(
     null
   );
@@ -136,6 +150,21 @@ export default function ToolPage() {
       }
     } catch {
       // ignore
+    }
+
+    // Restore any in-progress results — so navigating to another page and
+    // back (e.g. via Navbar, which causes a full page reload) doesn't
+    // silently throw away work that hasn't been copied/downloaded yet.
+    try {
+      const savedResults = sessionStorage.getItem("icebreak_results_cache");
+      if (savedResults) {
+        const parsedResults = JSON.parse(savedResults);
+        if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+          setResults(parsedResults);
+        }
+      }
+    } catch {
+      // ignore corrupted cache
     }
 
     // Restore saved template preferences (sender name, product description, tone, language)

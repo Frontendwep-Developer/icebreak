@@ -269,6 +269,7 @@ FORMATTING RULE: Write the sentences as plain continuous text separated only by 
 Hard rules:
 - Avoid generic filler like "commitment to innovation" or "cutting-edge" — keep it plain and direct instead.
 - Do not use a stock closing line like "Worth a quick chat?" — write a natural, specific call to action.
+- CRITICAL: Never assume the recipient already runs ads or has an existing marketing strategy — phrase the CTA neutrally (e.g. "worth exploring what this could look like for you") since this template will be sent to many different companies, some of whom may not be doing any marketing yet.
 
 Return ONLY valid JSON, no markdown, in this exact shape:
 {"opener": "...", "email": "..."}`;
@@ -372,6 +373,7 @@ Hard rules — read carefully, these are graded:
 - If the context is vague, short, or generic (e.g. it's just a title or a one-line description with no concrete specifics), do NOT invent specifics to sound impressive. Instead, either (a) reference the company's general industry/focus in an honest, low-key way, or (b) keep the opener brief and admit you're reaching out cold rather than pretending deep research. A slightly less impressive but honest opener beats a fabricated one every time.
 - Do NOT use generic marketing filler like "commitment to innovation", "innovative approach", "cutting-edge", "impressed by your commitment to excellence", or similar vague praise.
 - Do NOT end with "Worth a quick chat?" or any fixed phrase — vary the call to action naturally each time (e.g. ask a specific question, suggest a concrete next step, or just state interest plainly). Never reuse the same closing line twice.
+- CRITICAL: Never assume the lead already runs ads, has an existing marketing strategy, or is doing anything specific unless the context explicitly says so. Avoid phrases like "optimizing your current ad spend" or "your existing marketing strategy" unless the context confirms they already do this. Phrase the CTA neutrally instead (e.g. "worth exploring what this could look like for you" or "curious if this is something you'd want to explore").
 - Vary sentence structure and phrasing — do not follow a rigid template of "[praise] + [pitch] + [CTA]" every time.
 
 Return ONLY valid JSON, no markdown, in this exact shape:
