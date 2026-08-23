@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 
-export default function Navbar({ variant }: { variant: "landing" | "app" | "minimal" }) {
+export default function Navbar({ variant }: { variant: "landing" | "app" | "minimal" | "demo" }) {
   const router = useRouter();
   const pathname = usePathname();
   const [email, setEmail] = useState("");
@@ -84,6 +84,61 @@ export default function Navbar({ variant }: { variant: "landing" | "app" | "mini
         >
           ice<span className="text-thaw">break</span>
         </a>
+      </nav>
+    );
+  }
+
+  if (variant === "demo") {
+    const demoLinkClass = (active: boolean) =>
+      `text-sm font-medium px-4 py-2 rounded-full transition-colors ${
+        active
+          ? "bg-glacier text-frost"
+          : "hover:bg-glacier/5 text-glacier/60"
+      }`;
+
+    function requireSignup(feature: string) {
+      if (
+        confirm(
+          `${feature} needs a free account. Sign up now? (takes 10 seconds, no card needed)`
+        )
+      ) {
+        router.push("/login?mode=signup");
+      }
+    }
+
+    return (
+      <nav className="max-w-4xl mx-auto flex items-center justify-between px-6 py-6">
+        <a href="/" className="font-display font-semibold text-lg">
+          ice<span className="text-thaw">break</span>
+        </a>
+        <div className="flex items-center gap-3">
+          <a href="/demo" className={demoLinkClass(true)}>
+            Generate
+          </a>
+          <button
+            onClick={() => requireSignup("History")}
+            className={demoLinkClass(false)}
+          >
+            History
+          </button>
+          <button
+            onClick={() => requireSignup("Profile")}
+            className={demoLinkClass(false)}
+          >
+            Profile
+          </button>
+          <span className="text-xs font-medium px-4 py-2 rounded-full border border-thaw/30 text-thaw/70">
+            Demo mode
+          </span>
+          <div className="flex items-center gap-2 pl-3 border-l border-glacier/10">
+            <a
+              href="/login?mode=signup"
+              className="text-sm font-medium px-4 py-2 rounded-full bg-thaw text-white hover:brightness-105 transition"
+            >
+              Sign up free
+            </a>
+          </div>
+        </div>
       </nav>
     );
   }

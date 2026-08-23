@@ -161,9 +161,14 @@ export default function DemoPage() {
 
   return (
     <main className="min-h-screen bg-frost">
-      <Navbar variant="landing" />
+      <Navbar variant="demo" />
 
       <section className="max-w-3xl mx-auto px-6 pt-12 pb-24">
+        <div className="bg-thaw/10 border border-thaw/30 rounded-xl px-4 py-2.5 mb-6 text-sm text-glacier/80">
+          🧪 <strong>Demo / test mode</strong> — you're using Icebreak without
+          an account. Some buttons (History, Profile, Gmail) will prompt you
+          to sign up, since those need a real account.
+        </div>
         <h1 className="font-display text-3xl font-semibold mb-2">
           Try Icebreak — no sign-up needed
         </h1>
@@ -317,27 +322,78 @@ export default function DemoPage() {
             </div>
           )}
 
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="bg-thaw text-white font-medium px-6 py-3 rounded-full hover:brightness-105 transition disabled:opacity-50"
-          >
-            {loading ? "Writing..." : "Generate emails"}
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleGenerate}
+              disabled={loading}
+              className="bg-thaw text-white font-medium px-6 py-3 rounded-full hover:brightness-105 transition disabled:opacity-50"
+            >
+              {loading ? "Writing..." : "Generate emails"}
+            </button>
+            <button
+              onClick={() =>
+                confirm(
+                  "Gmail auto-drafts are a Pro feature. Sign up now? (takes 10 seconds, no card needed)"
+                ) && (window.location.href = "/login?mode=signup")
+              }
+              className="text-sm font-medium px-4 py-2.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+            >
+              Connect Gmail (Pro)
+            </button>
+          </div>
         </div>
 
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  const escapeCsv = (v: string) => `"${(v || "").replace(/"/g, '""')}"`;
+                  const header = ["Name", "Company", "Email"];
+                  const rows = results.map((r) => [r.lead.name, r.lead.company, r.email]);
+                  const csv = [header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\n");
+                  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = "icebreak-demo.csv";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }}
+                className="text-sm font-medium px-4 py-2 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+              >
+                Download CSV
+              </button>
+            </div>
             {results.map((r, i) => (
               <div key={i} className="rounded-2xl p-5 border bg-white border-glacier/10">
-                <div className="flex items-start justify-between mb-2 gap-3">
+                <div className="flex items-start justify-between mb-2 gap-3 flex-wrap">
                   <p className="font-mono text-xs text-thaw">#{i + 1} {r.lead.name} · {r.lead.company}</p>
-                  <button
-                    onClick={() => copyToClipboard(r.email, i)}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
-                  >
-                    {copiedIndex === i ? "Copied ✓" : "Copy"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => copyToClipboard(r.email, i)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                    >
+                      {copiedIndex === i ? "Copied ✓" : "Copy"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const mailto = `mailto:${r.lead.email || ""}?subject=${encodeURIComponent(
+                          `Quick question, ${r.lead.name}`
+                        )}&body=${encodeURIComponent(r.email)}`;
+                        window.open(
+                          `/mailto-redirect?to=${encodeURIComponent(mailto)}`,
+                          "_blank",
+                          "noopener,noreferrer"
+                        );
+                      }}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+                    >
+                      Open in email
+                    </button>
+                  </div>
                 </div>
                 <p className="text-sm whitespace-pre-wrap text-glacier/90">
                   {r.email || "(couldn't generate this one — try again)"}
