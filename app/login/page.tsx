@@ -69,6 +69,18 @@ function LoginContent() {
         }
         // If email confirmation is required, there's no session yet.
         if (!data.session) {
+          // Supabase returns a "success" response even when the email is
+          // already registered (to avoid leaking which emails exist) — but
+          // in that case `identities` comes back empty, unlike a genuinely
+          // new signup. Use that to show the correct message.
+          const isExistingAccount = (data.user?.identities?.length ?? 0) === 0;
+          if (isExistingAccount) {
+            setError(
+              "This email is already registered — try logging in instead."
+            );
+            setMode("login");
+            return;
+          }
           setError(
             "Check your inbox to confirm your email, then log in."
           );
