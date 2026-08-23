@@ -90,7 +90,7 @@ function ConfirmSignupContent() {
 
   return (
     <main className="min-h-screen bg-frost">
-      <Navbar variant="landing" />
+      <Navbar variant="minimal" />
 
       <section className="max-w-md mx-auto px-6 pt-16 pb-24">
         <div className="frosted rounded-2xl p-8">

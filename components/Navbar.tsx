@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 
-export default function Navbar({ variant }: { variant: "landing" | "app" }) {
+export default function Navbar({ variant }: { variant: "landing" | "app" | "minimal" }) {
   const router = useRouter();
   const pathname = usePathname();
   const [email, setEmail] = useState("");
@@ -73,6 +73,19 @@ export default function Navbar({ variant }: { variant: "landing" | "app" }) {
     }
     await supabaseClient.auth.signOut();
     router.push("/login");
+  }
+
+  if (variant === "minimal") {
+    return (
+      <nav className="max-w-6xl mx-auto flex items-center px-6 py-6">
+        <a
+          href="/"
+          className="font-display font-semibold text-lg tracking-tight"
+        >
+          ice<span className="text-thaw">break</span>
+        </a>
+      </nav>
+    );
   }
 
   if (variant === "landing") {
