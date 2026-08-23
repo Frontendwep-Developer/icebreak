@@ -12,6 +12,16 @@ function passwordIssue(pw: string): string | null {
   return null;
 }
 
+// Used only as a throwaway placeholder at signup — it's immediately
+// invalidated again as soon as the confirmation link is opened, and the
+// real password is set on /confirm-signup. Nobody ever needs to know or
+// use this value.
+function generateThrowawayPassword() {
+  const array = new Uint8Array(24);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,11 +52,6 @@ function LoginContent() {
     }
 
     if (mode === "signup") {
-      const issue = passwordIssue(password);
-      if (issue) {
-        setError(issue);
-        return;
-      }
       if (!agreedToTerms) {
         setError("Please agree to the Terms of Service and Privacy Policy");
         return;
@@ -61,14 +66,12 @@ function LoginContent() {
       if (mode === "signup") {
         const { data, error: signUpError } = await supabaseClient.auth.signUp({
           email: email.trim(),
-          password,
+          // Never set by the person filling this form — see
+          // generateThrowawayPassword() for why. The real password is
+          // chosen on /confirm-signup, by whoever actually owns this inbox.
+          password: generateThrowawayPassword(),
           options: {
             ...(name.trim() ? { data: { full_name: name.trim() } } : {}),
-            // Whoever actually clicks the confirmation link (i.e. the real
-            // owner of this inbox) lands here and must set a NEW password
-            // before the account is usable — this makes the password
-            // someone entered here at signup irrelevant, so signing up
-            // with an email you don't own can never grant real access.
             emailRedirectTo: `${window.location.origin}/confirm-signup`,
           },
         });
@@ -78,8 +81,9 @@ function LoginContent() {
         }
 
         if (data.session) {
-          // Email confirmation is off — signed in immediately.
-          router.push("/tool");
+          // Email confirmation is off — signed in immediately. Send them
+          // to set a real password right away.
+          router.push("/confirm-signup");
           return;
         }
 
@@ -146,7 +150,8 @@ function LoginContent() {
               </h1>
               <p className="text-sm text-glacier/60 mb-6">
                 We sent a confirmation link to <strong>{email}</strong>.
-                Click it to finish setting up your account.
+                Click it to set your password and finish creating your
+                account.
               </p>
               <button
                 onClick={() => {
@@ -237,7 +242,7 @@ function LoginContent() {
                   <p className="text-sm text-glacier/60 mb-6">
                     {mode === "login"
                       ? "Enter your email and password to continue."
-                      : "Create an account with your email and a password."}
+                      : "We'll email you a link to set your password and get started."}
                   </p>
 
                   <div className="space-y-3">
@@ -250,30 +255,29 @@ function LoginContent() {
                       className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 bg-white/70"
                     />
 
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleContinue()}
-                        className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 pr-16 bg-white/70"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        tabIndex={-1}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-mist hover:text-thaw"
-                      >
-                        {showPassword ? "Hide" : "Show"}
-                      </button>
-                    </div>
+                    {mode === "login" && (
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+                          className="w-full border border-glacier/15 rounded-xl px-4 py-2.5 pr-16 bg-white/70"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          tabIndex={-1}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-mist hover:text-thaw"
+                        >
+                          {showPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
+                    )}
 
                     {mode === "signup" && (
                       <>
-                        <p className="text-[11px] text-mist -mt-1">
-                          At least 8 characters, with a letter and a number.
-                        </p>
                         <input
                           type="text"
                           placeholder="Your name (optional, used to sign your emails)"
@@ -338,7 +342,7 @@ function LoginContent() {
                         ? "Please wait..."
                         : mode === "login"
                         ? "Log in"
-                        : "Create account & continue"}
+                        : "Sign up"}
                     </button>
                   </div>
 

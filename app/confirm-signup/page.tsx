@@ -12,6 +12,14 @@ function passwordIssue(pw: string): string | null {
   return null;
 }
 
+// Same helper as login/page.tsx — used here to immediately overwrite the
+// signup-time throwaway password again, closing the window completely.
+function generateThrowawayPassword() {
+  const array = new Uint8Array(24);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function ConfirmSignupContent() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
@@ -26,12 +34,23 @@ function ConfirmSignupContent() {
 
   useEffect(() => {
     // Clicking the confirmation link establishes a session automatically
-    // (Supabase reads the token from the URL) — we just wait for it, then
-    // require a brand-new password before letting them into the app. This
-    // way, whatever password was typed at signup never actually becomes
-    // the account's real password — only whoever clicks this link (the
-    // real inbox owner) gets to set one that works.
-    supabaseClient.auth.getSession().then(({ data }) => {
+    // (Supabase reads the token from the URL). The moment that happens, we
+    // IMMEDIATELY overwrite the password with a new random value — before
+    // showing anything to the user. This closes the gap completely: even
+    // if the person who set the original signup password never comes back
+    // to this page, or the real owner closes the tab without picking a
+    // password of their own, the original (throwaway) password is already
+    // dead and unusable by anyone.
+    supabaseClient.auth.getSession().then(async ({ data }) => {
+      if (data.session) {
+        try {
+          const invalidator = generateThrowawayPassword();
+          await supabaseClient.auth.updateUser({ password: invalidator });
+        } catch {
+          // Even if this fails, we still require setting a real password
+          // below before letting them continue — non-fatal either way.
+        }
+      }
       setHasSession(!!data.session);
       setChecking(false);
     });
