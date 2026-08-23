@@ -31,6 +31,8 @@ export default function DemoPage() {
   const [results, setResults] = useState<ResultItem[]>([]);
   const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
 
   function parseLeads(raw: string): Lead[] {
     return raw
@@ -157,6 +159,23 @@ export default function DemoPage() {
     navigator.clipboard.writeText(text);
     setCopiedIndex(i);
     setTimeout(() => setCopiedIndex(null), 2000);
+  }
+
+  function startEdit(i: number) {
+    setEditingIndex(i);
+    setEditText(results[i].email);
+  }
+
+  function saveEdit(i: number) {
+    setResults((prev) =>
+      prev.map((r, idx) => (idx === i ? { ...r, email: editText } : r))
+    );
+    setEditingIndex(null);
+  }
+
+  function cancelEdit() {
+    setEditingIndex(null);
+    setEditText("");
   }
 
   return (
@@ -372,32 +391,67 @@ export default function DemoPage() {
                 <div className="flex items-start justify-between mb-2 gap-3 flex-wrap">
                   <p className="font-mono text-xs text-thaw">#{i + 1} {r.lead.name} · {r.lead.company}</p>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => copyToClipboard(r.email, i)}
-                      className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
-                    >
-                      {copiedIndex === i ? "Copied ✓" : "Copy"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const mailto = `mailto:${r.lead.email || ""}?subject=${encodeURIComponent(
-                          `Quick question, ${r.lead.name}`
-                        )}&body=${encodeURIComponent(r.email)}`;
-                        window.open(
-                          `/mailto-redirect?to=${encodeURIComponent(mailto)}`,
-                          "_blank",
-                          "noopener,noreferrer"
-                        );
-                      }}
-                      className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
-                    >
-                      Open in email
-                    </button>
+                    {editingIndex === i ? (
+                      <>
+                        <button
+                          onClick={cancelEdit}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => saveEdit(i)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+                        >
+                          Save
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => copyToClipboard(r.email, i)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                        >
+                          {copiedIndex === i ? "Copied ✓" : "Copy"}
+                        </button>
+                        <button
+                          onClick={() => startEdit(i)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            const mailto = `mailto:${r.lead.email || ""}?subject=${encodeURIComponent(
+                              `Quick question, ${r.lead.name}`
+                            )}&body=${encodeURIComponent(r.email)}`;
+                            window.open(
+                              `/mailto-redirect?to=${encodeURIComponent(mailto)}`,
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
+                          }}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+                        >
+                          Open in email
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-                <p className="text-sm whitespace-pre-wrap text-glacier/90">
-                  {r.email || "(couldn't generate this one — try again)"}
-                </p>
+                {editingIndex === i ? (
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    rows={6}
+                    autoFocus
+                    className="w-full border border-glacier/15 rounded-xl px-3 py-2 text-sm bg-white/70"
+                  />
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap text-glacier/90">
+                    {r.email || "(couldn't generate this one — try again)"}
+                  </p>
+                )}
               </div>
             ))}
 
