@@ -33,6 +33,11 @@ export default function DemoPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  const [editTone, setEditTone] = useState("friendly");
+  const [editLanguage, setEditLanguage] = useState("English");
+  const [editLeadName, setEditLeadName] = useState("");
+  const [editLeadEmail, setEditLeadEmail] = useState("");
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
 
   function parseLeads(raw: string): Lead[] {
     return raw
@@ -164,18 +169,67 @@ export default function DemoPage() {
   function startEdit(i: number) {
     setEditingIndex(i);
     setEditText(results[i].email);
+    setEditTone(tone);
+    setEditLanguage(language);
+    setEditLeadName(results[i].lead.name);
+    setEditLeadEmail(results[i].lead.email);
   }
 
   function saveEdit(i: number) {
     setResults((prev) =>
-      prev.map((r, idx) => (idx === i ? { ...r, email: editText } : r))
+      prev.map((r, idx) =>
+        idx === i
+          ? {
+              ...r,
+              email: editText,
+              lead: { ...r.lead, name: editLeadName, email: editLeadEmail },
+            }
+          : r
+      )
     );
     setEditingIndex(null);
   }
 
   function cancelEdit() {
     setEditingIndex(null);
+  }
+
+  function clearEditText() {
     setEditText("");
+  }
+
+  async function regenerate(i: number) {
+    setRegeneratingIndex(i);
+    setError("");
+    try {
+      const res = await fetch("/api/demo-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          senderName,
+          productDescription,
+          tone: editTone,
+          language: editLanguage,
+          leads: [
+            { ...results[i].lead, name: editLeadName, email: editLeadEmail },
+          ],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Could not regenerate");
+        setNeedsSignup(!!data.signupPrompt);
+        return;
+      }
+      const newResult = data.results[0];
+      setResults((prev) => prev.map((r, idx) => (idx === i ? newResult : r)));
+      setUsage({ used: data.usedToday, limit: data.limit });
+      setEditingIndex(null);
+    } catch (e: any) {
+      setError("Network error: " + e.message);
+    } finally {
+      setRegeneratingIndex(null);
+    }
   }
 
   return (
@@ -390,63 +444,113 @@ export default function DemoPage() {
               <div key={i} className="rounded-2xl p-5 border bg-white border-glacier/10">
                 <div className="flex items-start justify-between mb-2 gap-3 flex-wrap">
                   <p className="font-mono text-xs text-thaw">#{i + 1} {r.lead.name} · {r.lead.company}</p>
-                  <div className="flex gap-2">
-                    {editingIndex === i ? (
-                      <>
-                        <button
-                          onClick={cancelEdit}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => saveEdit(i)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
-                        >
-                          Save
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => copyToClipboard(r.email, i)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
-                        >
-                          {copiedIndex === i ? "Copied ✓" : "Copy"}
-                        </button>
-                        <button
-                          onClick={() => startEdit(i)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            const mailto = `mailto:${r.lead.email || ""}?subject=${encodeURIComponent(
-                              `Quick question, ${r.lead.name}`
-                            )}&body=${encodeURIComponent(r.email)}`;
-                            window.open(
-                              `/mailto-redirect?to=${encodeURIComponent(mailto)}`,
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
-                          }}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
-                        >
-                          Open in email
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {editingIndex !== i && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => copyToClipboard(r.email, i)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                      >
+                        {copiedIndex === i ? "Copied ✓" : "Copy"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const mailto = `mailto:${r.lead.email || ""}?subject=${encodeURIComponent(
+                            `Quick question, ${r.lead.name}`
+                          )}&body=${encodeURIComponent(r.email)}`;
+                          window.open(
+                            `/mailto-redirect?to=${encodeURIComponent(mailto)}`,
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        }}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white hover:brightness-105 transition"
+                      >
+                        Open in email
+                      </button>
+                      <button
+                        onClick={() => startEdit(i)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
                 </div>
+
                 {editingIndex === i ? (
-                  <textarea
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    rows={6}
-                    autoFocus
-                    className="w-full border border-glacier/15 rounded-xl px-3 py-2 text-sm bg-white/70"
-                  />
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={editLeadName}
+                        onChange={(e) => setEditLeadName(e.target.value)}
+                        placeholder="Lead name"
+                        className="border border-glacier/15 rounded-xl px-3 py-1.5 text-xs bg-white/70"
+                      />
+                      <input
+                        type="email"
+                        value={editLeadEmail}
+                        onChange={(e) => setEditLeadEmail(e.target.value)}
+                        placeholder="Lead email"
+                        className="border border-glacier/15 rounded-xl px-3 py-1.5 text-xs bg-white/70"
+                      />
+                    </div>
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={5}
+                      className="w-full border border-glacier/15 rounded-xl px-3 py-2 text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={editTone}
+                        onChange={(e) => setEditTone(e.target.value)}
+                        className="border border-glacier/15 rounded-xl px-3 py-1.5 text-xs bg-white/70"
+                      >
+                        <option value="friendly">Friendly</option>
+                        <option value="formal">Formal</option>
+                        <option value="short">Short &amp; direct</option>
+                        <option value="casual">Casual</option>
+                      </select>
+                      <select
+                        value={editLanguage}
+                        onChange={(e) => setEditLanguage(e.target.value)}
+                        className="border border-glacier/15 rounded-xl px-3 py-1.5 text-xs bg-white/70"
+                      >
+                        <option value="English">English</option>
+                        <option value="Spanish">Spanish</option>
+                        <option value="Russian">Russian</option>
+                        <option value="Uzbek">Uzbek</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => saveEdit(i)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-thaw text-white"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => regenerate(i)}
+                        disabled={regeneratingIndex === i}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-thaw hover:text-thaw transition-colors disabled:opacity-50"
+                      >
+                        {regeneratingIndex === i ? "Regenerating..." : "Regenerate (1 credit)"}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={clearEditText}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-glacier/15 hover:border-red-300 hover:text-red-500 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <p className="text-sm whitespace-pre-wrap text-glacier/90">
                     {r.email || "(couldn't generate this one — try again)"}
