@@ -21,17 +21,23 @@ export default function Home() {
             genuinely personal opening line and email — in seconds, not
             hours.
           </p>
-          <div className="mt-8 flex items-center gap-4">
+          <div className="mt-8 flex items-center gap-4 flex-wrap">
             <Link
               href="/login?mode=signup"
               className="bg-thaw text-white font-medium px-6 py-3 rounded-full hover:brightness-105 transition"
             >
               Generate my first batch
             </Link>
-            <span className="text-sm text-mist">
-              10 free emails · no card required
-            </span>
+            <Link
+              href="/demo"
+              className="text-sm font-medium text-glacier/70 hover:text-thaw underline transition-colors"
+            >
+              Try it now, no sign-up →
+            </Link>
           </div>
+          <p className="mt-2 text-sm text-mist">
+            10 free emails · no card required
+          </p>
         </div>
 
         {/* Signature visual: frozen template -> thawed personalized email */}
