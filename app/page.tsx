@@ -30,7 +30,7 @@ export default function Home() {
             </Link>
             <Link
               href="/demo"
-              className="text-sm font-medium text-glacier/70 hover:text-thaw underline transition-colors"
+              className="border-2 border-glacier/20 text-glacier font-medium px-6 py-3 rounded-full hover:border-thaw hover:text-thaw transition-colors"
             >
               Try it now, no sign-up →
             </Link>
