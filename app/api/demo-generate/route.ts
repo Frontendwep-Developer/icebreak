@@ -38,7 +38,7 @@ async function callGroq(prompt: string) {
       Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "qwen/qwen3.6-27b",
+      model: "qwen/qwen3.8-27b",
       max_tokens: 400,
       temperature: 0.9,
       reasoning_effort: "none",
